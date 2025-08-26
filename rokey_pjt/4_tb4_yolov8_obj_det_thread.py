@@ -1,5 +1,6 @@
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Float32
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import cv2
@@ -17,6 +18,7 @@ MODEL_PATH = '/home/rokey/rokey_ws/model/enemy_best.pt'
 RGB_IMAGE_TOPIC = '/robot2/oakd/rgb/preview/image_raw'
 DEPTH_IMAGE_TOPIC = '/robot2/oakd/stereo/image_raw'
 CAMERA_INFO_TOPIC = '/robot2/oakd/stereo/camera_info'
+DISTANCE_INFO_TOPIC = '/robot2/distance'
 TARGET_CLASS_ID = 0
 NORMALIZE_DEPTH_RANGE = 3.0
 # ========================
@@ -39,6 +41,10 @@ class YOLOTrackerNode(Node):
         self.latest_raw_depth_frame = None
         self.data_lock = threading.Lock()
         self.camera_info_K = None
+        # ROS2 발행 설정
+        self.publisher_ = self.create_publisher(
+            Float32, DISTANCE_INFO_TOPIC, 10
+        )
         # ROS 2 구독 설정
         self.rgb_subscription = self.create_subscription(
             Image, RGB_IMAGE_TOPIC, self.rgb_image_callback, 10)
@@ -133,6 +139,9 @@ class YOLOTrackerNode(Node):
                         if distance_mm > 0:
                             distance_m = distance_mm / 1000.0
                 if distance_m > 0:
+                    msg = Float32()
+                    msg.data = distance_m
+                    self.publisher_.publish(msg)
                     text = f"{label} {distance_m:.2f}m ({conf:.2f})"
                 else:
                     text = f"{label} ({conf:.2f})"
