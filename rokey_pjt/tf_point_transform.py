@@ -1,9 +1,12 @@
 # tf_point_transform.py
 import rclpy
 from rclpy.node import Node
+from std_msgs.msg import Float32
 from geometry_msgs.msg import PointStamped
 import tf2_ros
 import tf2_geometry_msgs  # 꼭 필요
+
+DISTANCE_INFO_TOPIC = '/robot2/distance'
 
 class TfPointTransform(Node):
     def __init__(self):
@@ -16,6 +19,15 @@ class TfPointTransform(Node):
         # 5초 후에 변환 시작
         self.get_logger().info("TF Tree 안정화 시작. 5초 후 변환 시작합니다.")
         self.start_timer = self.create_timer(5.0, self.start_transform)
+
+        self.point_x = None
+
+        self.distance_subscription = self.create_subscription(
+            Float32, DISTANCE_INFO_TOPIC, self.distance_subscription_callback, 10
+        )
+    
+    def distance_subscription_callback(self, msg):
+        self.point_x = msg.data
 
     def start_transform(self):
         self.get_logger().info("TF Tree 안정화 완료. 변환 시작합니다.")
@@ -32,7 +44,7 @@ class TfPointTransform(Node):
             point_base = PointStamped()
             point_base.header.stamp = rclpy.time.Time().to_msg()
             point_base.header.frame_id = 'base_link'
-            point_base.point.x = 1.0 #1m 앞
+            point_base.point.x = self.point_x
             point_base.point.y = 0.0
             point_base.point.z = 0.0
 
