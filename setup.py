@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'yolo=rokey_pjt.4_tb4_yolov8_obj_det_thread:main'
         ],
     },
 )
