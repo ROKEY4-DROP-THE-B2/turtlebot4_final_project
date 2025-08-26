@@ -1,6 +1,6 @@
 import rclpy
 from rclpy.node import Node
-from sensor_msgs.msg import Image
+from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge
 import cv2
 import math
@@ -8,123 +8,156 @@ import os
 import sys
 import threading
 import queue
+import numpy as np
 from ultralytics import YOLO
-
 # ========================
 # 상수 정의
 # ========================
-MODEL_PATH = '/home/rokey/rokey_ws/src/yolov8_ros/runs/detect/yolov8n_train_results/weights'  # YOLO 모델 경로
-IMAGE_TOPIC = '/robot2/oakd/rgb/preview/image_raw'     # 이미지 토픽
-TARGET_CLASS_ID = 0                                     # 인식할 클래스 ID
-
+MODEL_PATH = '/home/rokey/rokey_ws/model/enemy_best.pt'
+RGB_IMAGE_TOPIC = '/robot2/oakd/rgb/preview/image_raw'
+DEPTH_IMAGE_TOPIC = '/robot2/oakd/stereo/image_raw'
+CAMERA_INFO_TOPIC = '/robot2/oakd/stereo/camera_info'
+TARGET_CLASS_ID = 0
+NORMALIZE_DEPTH_RANGE = 3.0
 # ========================
-# YOLO 객체 인식 노드 정의
+# YOLO 객체 인식 + 추적 + 깊이 노드
 # ========================
-class YOLOViewerNode(Node):
+class YOLOTrackerNode(Node):
     def __init__(self):
-        super().__init__('yolo_viewer_node')
-
-        # 모델 로딩
+        super().__init__('yolo_tracker_node')
         if not os.path.exists(MODEL_PATH):
             self.get_logger().error(f"Model not found: {MODEL_PATH}")
             sys.exit(1)
         self.model = YOLO(MODEL_PATH)
         self.class_names = getattr(self.model, 'names', [])
-
         self.bridge = CvBridge()
-
-        # 이미지 큐: 백그라운드 스레드와 공유
-        self.image_queue = queue.Queue(maxsize=1)  # 최신 프레임만 유지
         self.should_shutdown = False
-        self.window_name = "YOLO Detection"
-
-        # 이미지 구독
-        self.subscription = self.create_subscription(
-            Image,
-            IMAGE_TOPIC,
-            self.image_callback,
-            10
-        )
-
+        self.window_name = "YOLO & Depth"
+        # 데이터 공유를 위한 멤버 변수 및 Lock
+        self.rgb_image_queue = queue.Queue(maxsize=1)
+        self.latest_depth_vis_frame = None
+        self.latest_raw_depth_frame = None
+        self.data_lock = threading.Lock()
+        self.camera_info_K = None
+        # ROS 2 구독 설정
+        self.rgb_subscription = self.create_subscription(
+            Image, RGB_IMAGE_TOPIC, self.rgb_image_callback, 10)
+        self.depth_subscription = self.create_subscription(
+            Image, DEPTH_IMAGE_TOPIC, self.depth_image_callback, 10)
+        self.camera_info_subscription = self.create_subscription(
+            CameraInfo, CAMERA_INFO_TOPIC, self.camera_info_callback, 10)
         # 백그라운드 처리 스레드 시작
         self.worker_thread = threading.Thread(target=self.visualization_loop)
         self.worker_thread.daemon = True
         self.worker_thread.start()
-
-    def image_callback(self, msg):
-        # ROS 메시지를 OpenCV 이미지로 변환
-        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-
-        # 큐에 프레임 추가 (이전 프레임 덮어쓰기)
-        if not self.image_queue.full():
-            self.image_queue.put(frame)
-        else:
-            try:
-                self.image_queue.get_nowait()  # 이전 프레임 버림
-            except queue.Empty:
-                pass
-            self.image_queue.put(frame)
-
+    def rgb_image_callback(self, msg):
+        try:
+            frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+            if not self.rgb_image_queue.full():
+                self.rgb_image_queue.put(frame)
+            else:
+                try:
+                    self.rgb_image_queue.get_nowait()
+                except queue.Empty:
+                    pass
+                self.rgb_image_queue.put(frame)
+        except Exception as e:
+            self.get_logger().error(f"Error in rgb_image_callback: {e}")
+    def depth_image_callback(self, msg):
+        try:
+            if self.camera_info_K is None:
+                self.get_logger().warn('Waiting for CameraInfo...')
+                return
+            raw_depth_mm = self.bridge.imgmsg_to_cv2(msg, desired_encoding='passthrough')
+            depth_vis = np.nan_to_num(raw_depth_mm, nan=0.0)
+            depth_vis = np.clip(depth_vis, 0, NORMALIZE_DEPTH_RANGE * 1000)
+            depth_vis = (depth_vis / (NORMALIZE_DEPTH_RANGE * 1000) * 255).astype(np.uint8)
+            with self.data_lock:
+                self.latest_depth_vis_frame = depth_vis
+                self.latest_raw_depth_frame = raw_depth_mm
+        except Exception as e:
+            self.get_logger().error(f"Error in depth_image_callback: {e}")
+    def camera_info_callback(self, msg):
+        try:
+            if self.camera_info_K is None:
+                with self.data_lock:
+                    self.camera_info_K = np.array(msg.k).reshape(3, 3)
+                    self.get_logger().info("CameraInfo received. K matrix stored.")
+        except Exception as e:
+            self.get_logger().error(f"Error in camera_info_callback: {e}")
     def visualization_loop(self):
-        # YOLO + 시각화 백그라운드 루프
         while not self.should_shutdown:
             try:
-                frame = self.image_queue.get(timeout=0.1)
+                frame = self.rgb_image_queue.get(timeout=0.1)
             except queue.Empty:
                 continue
-
-            results = self.model(frame, stream=True)
-            object_count = 0
-
-            for r in results:
-                for box in r.boxes:
-                    cls = int(box.cls[0])
-                    if cls != TARGET_CLASS_ID:
-                        continue
-
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
-                    conf = math.ceil(box.conf[0] * 100) / 100
-                    label = self.class_names[cls] if cls < len(self.class_names) else f"class_{cls}"
-
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.putText(frame, f"{label}: {conf}", (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
-                    object_count += 1
-
-            cv2.putText(frame, f"Objects: {object_count}", (10, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-
-            # 시각화
-            display_img = cv2.resize(frame, (frame.shape[1]*2, frame.shape[0]*2))
-            cv2.imshow(self.window_name, display_img)
-
-            # 종료 감지
+            results = self.model.track(source=frame, persist=True, stream=True, verbose=False)
+            with self.data_lock:
+                depth_vis_frame = self.latest_depth_vis_frame
+                raw_depth_frame = self.latest_raw_depth_frame
+            if depth_vis_frame is not None and raw_depth_frame is not None:
+                self.draw_yolo_results(frame, results, raw_depth_frame)
+                display_depth = depth_vis_frame.copy()
+                display_depth_bgr = cv2.cvtColor(display_depth, cv2.COLOR_GRAY2BGR)
+                display_depth_colored = cv2.applyColorMap(depth_vis_frame, cv2.COLORMAP_JET)
+                self.draw_yolo_results(display_depth_bgr, results, raw_depth_frame)
+                # if frame.shape[1] != display_depth_bgr.shape[1]:
+                #     self.get_logger().info("Resizing")
+                #     display_depth_bgr = cv2.resize(display_depth_bgr, (frame.shape[1], frame.shape[0]))
+                # final_image = np.hstack((frame, display_depth_bgr))
+                final_image = np.hstack((frame, display_depth_colored))
+                cv2.imshow(self.window_name, final_image)
+            else:
+                self.draw_yolo_results(frame, results, depth_frame=None)
+                cv2.imshow(self.window_name, frame)
             key = cv2.waitKey(1)
             if key == ord('q'):
                 self.should_shutdown = True
                 self.get_logger().info("Q pressed. Shutting down...")
                 break
-
+    def draw_yolo_results(self, img, results, depth_frame=None):
+        object_count = 0
+        for r in results:
+            for box in r.boxes:
+                cls = int(box.cls[0])
+                if cls != TARGET_CLASS_ID:
+                    continue
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = math.ceil(box.conf[0] * 100) / 100
+                label = self.class_names[cls] if cls < len(self.class_names) else f"class_{cls}"
+                center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
+                distance_m = -1.0
+                if depth_frame is not None:
+                    if 0 <= center_y < depth_frame.shape[0] and 0 <= center_x < depth_frame.shape[1]:
+                        distance_mm = depth_frame[center_y, center_x]
+                        if distance_mm > 0:
+                            distance_m = distance_mm / 1000.0
+                if distance_m > 0:
+                    text = f"{label} {distance_m:.2f}m ({conf:.2f})"
+                else:
+                    text = f"{label} ({conf:.2f})"
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv2.putText(img, text, (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+                object_count += 1
+        cv2.putText(img, f"Objects: {object_count}", (10, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 # ========================
 # 메인 함수
 # ========================
 def main():
     rclpy.init()
-    node = YOLOViewerNode()
-
+    node = YOLOTrackerNode()
     try:
-        # ROS 메시지 처리 루프 (YOLO는 스레드에서 따로 처리됨)
         while rclpy.ok() and not node.should_shutdown:
             rclpy.spin_once(node, timeout_sec=0.1)
     except KeyboardInterrupt:
         pass
     finally:
-        # 자원 정리 및 종료
         node.destroy_node()
         rclpy.shutdown()
         cv2.destroyAllWindows()
         print("Shutdown complete.")
         sys.exit(0)
-
 if __name__ == '__main__':
     main()
