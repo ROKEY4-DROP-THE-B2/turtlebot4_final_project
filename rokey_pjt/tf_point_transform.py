@@ -40,6 +40,9 @@ class TfPointTransform(Node):
 
     def timer_callback(self):
         try:
+            if self.point_x is None or self.point_x < 0:
+                self.get_logger().info(f"point_x is not initialized.")
+                return
             # base_link 기준 포인트 생성
             point_base = PointStamped()
             point_base.header.stamp = rclpy.time.Time().to_msg()
