@@ -33,7 +33,7 @@ class TfPointTransform(Node):
         self.marker_pub = self.create_publisher(Marker, MARKER_TOPIC, 10)
         self.marker_id = 0
 
-    def publish_marker(self, x, y, z, label):
+    def publish_marker(self, x, y, z):
         marker = Marker()
         marker.header.frame_id = 'map'
         marker.header.stamp = self.get_clock().now().to_msg()
@@ -79,6 +79,7 @@ class TfPointTransform(Node):
                     'map',
                     timeout=rclpy.duration.Duration(seconds=0.5)
                 )
+                self.publish_marker(point_map.point.x, point_map.point.y, point_map.point.z)
                 self.get_logger().info(f"[Base_link] ({point_base.point.x:.2f}, {point_base.point.y:.2f}, {point_base.point.z:.2f})")
                 self.get_logger().info(f"[Map]       ({point_map.point.x:.2f}, {point_map.point.y:.2f}, {point_map.point.z:.2f})")
             except Exception as e:
