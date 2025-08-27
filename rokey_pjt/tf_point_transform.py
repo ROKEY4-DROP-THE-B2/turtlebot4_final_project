@@ -5,8 +5,11 @@ from std_msgs.msg import Float32
 from geometry_msgs.msg import PointStamped
 import tf2_ros
 import tf2_geometry_msgs  # 꼭 필요
+from visualization_msgs.msg import Marker
 
+NORMALIZE_DEPTH_RANGE = 3.0
 DISTANCE_INFO_TOPIC = '/robot2/distance'
+MARKER_TOPIC = 'detected_objects_marker'
 
 class TfPointTransform(Node):
     def __init__(self):
@@ -25,6 +28,24 @@ class TfPointTransform(Node):
         self.distance_subscription = self.create_subscription(
             Float32, DISTANCE_INFO_TOPIC, self.distance_subscription_callback, 10
         )
+    
+
+        self.marker_pub = self.create_publisher(Marker, MARKER_TOPIC, 10)
+        self.marker_id = 0
+
+    def publish_marker(self, x, y, z, label):
+        marker = Marker()
+        marker.header.frame_id = 'map'
+        marker.header.stamp = self.get_clock().now().to_msg()
+        marker.ns, marker.id = 'detected_objects', self.marker_id
+        self.marker_id += 1
+        marker.type, marker.action = Marker.SPHERE, Marker.ADD
+        marker.pose.position.x, marker.pose.position.y, marker.pose.position.z = x, y, z
+        marker.pose.orientation.w = 1.0
+        marker.scale.x = marker.scale.y = marker.scale.z = 0.2
+        marker.color.r, marker.color.g, marker.color.b, marker.color.a = 1.0, 1.0, 0.0, 1.0
+        marker.lifetime.sec = 5
+        self.marker_pub.publish(marker)
     
     def distance_subscription_callback(self, msg):
         self.point_x = msg.data
