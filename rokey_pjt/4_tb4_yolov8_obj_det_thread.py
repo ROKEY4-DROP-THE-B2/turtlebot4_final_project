@@ -133,22 +133,22 @@ class YOLOTrackerNode(Node):
                 label = self.class_names[cls] if cls < len(self.class_names) else f"class_{cls}"
                 center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
                 distance_m = -1.0
-                if depth_frame is not None:
-                    if 0 <= center_y < depth_frame.shape[0] and 0 <= center_x < depth_frame.shape[1]:
-                        distance_mm = depth_frame[center_y, center_x]
-                        if distance_mm > 0:
-                            distance_m = distance_mm / 1000.0
-                if distance_m > 0:
+                if depth_frame is not None \
+                    and 0 <= center_y < depth_frame.shape[0] \
+                        and 0 <= center_x < depth_frame.shape[1]:
+                    distance_mm = depth_frame[center_y, center_x]
+                    if distance_mm > 0:
+                        distance_m = distance_mm / 1000.0
+                if distance_m > 0 and label == 'MOH-50' and conf >= 0.7:
                     msg = Float32()
                     msg.data = distance_m
                     self.publisher_.publish(msg)
-                    text = f"{label} {distance_m:.2f}m ({conf:.2f})"
-                else:
-                    text = f"{label} ({conf:.2f})"
-                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                cv2.putText(img, text, (x1, y1 - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
-                object_count += 1
+                    text = f"{conf:.2f} {distance_m:.2f}m"
+
+                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.putText(img, text, (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+                    object_count += 1
         cv2.putText(img, f"Objects: {object_count}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 # ========================
