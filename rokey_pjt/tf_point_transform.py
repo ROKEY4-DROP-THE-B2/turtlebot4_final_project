@@ -28,17 +28,14 @@ class TfPointTransform(Node):
         self.distance_subscription = self.create_subscription(
             Float32, DISTANCE_INFO_TOPIC, self.distance_subscription_callback, 10
         )
-    
-
+        
         self.marker_pub = self.create_publisher(Marker, MARKER_TOPIC, 10)
-        self.marker_id = 0
 
     def publish_marker(self, x, y, z):
         marker = Marker()
         marker.header.frame_id = 'map'
         marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns, marker.id = 'detected_objects', self.marker_id
-        self.marker_id += 1
+        marker.ns = 'detected_objects'
         marker.type, marker.action = Marker.SPHERE, Marker.ADD
         marker.pose.position.x, marker.pose.position.y, marker.pose.position.z = x, y, z
         marker.pose.orientation.w = 1.0
@@ -48,27 +45,13 @@ class TfPointTransform(Node):
         self.marker_pub.publish(marker)
     
     def distance_subscription_callback(self, msg):
-        self.point_x = msg.data
-
-    def start_transform(self):
-        self.get_logger().info("TF Tree 안정화 완료. 변환 시작합니다.")
-
-        # 주기적 변환 타이머 등록
-        self.transform_timer = self.create_timer(2.0, self.timer_callback)
-
-        # 시작 타이머 중지 (한 번만 실행)
-        self.start_timer.cancel()
-
-    def timer_callback(self):
+        distance = msg.data
         try:
-            if self.point_x is None or self.point_x < 0:
-                self.get_logger().info(f"point_x is not initialized.")
-                return
             # base_link 기준 포인트 생성
             point_base = PointStamped()
             point_base.header.stamp = rclpy.time.Time().to_msg()
             point_base.header.frame_id = 'base_link'
-            point_base.point.x = self.point_x
+            point_base.point.x = distance
             point_base.point.y = 0.0
             point_base.point.z = 0.0
 
@@ -87,6 +70,12 @@ class TfPointTransform(Node):
 
         except Exception as e:
             self.get_logger().warn(f"Unexpected error: {e}")
+
+    def start_transform(self):
+        self.get_logger().info("TF Tree 안정화 완료. 변환 시작합니다.")
+
+        # 시작 타이머 중지 (한 번만 실행)
+        self.start_timer.cancel()
 
 def main():
     rclpy.init()
