@@ -27,7 +27,7 @@ class DockStateSubscriber(Node):
     def __init__(self):
         super().__init__('dock_state_subscriber')
 
-        self.cmd_vel_publisher_ = self.create_publisher(Twist, 'cmd_vel', 10)
+        self.cmd_vel_publisher_ = self.create_publisher(Twist, '/robot2/cmd_vel', 10)
         self.mqtt_client = self.connect_mqtt()
         self.mqtt_client.loop_start()
 
