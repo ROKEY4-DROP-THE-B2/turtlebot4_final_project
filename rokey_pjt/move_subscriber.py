@@ -1,16 +1,20 @@
+#혹시 필요하다면 터미널에서 설치
+# python3 -m pip install --user nav2-simple-commander PyYAML
+
 # tf_point_transform.py
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16
-from paho.mqtt import client as mqtt_client
+#from paho.mqtt import client as mqtt_client
 from geometry_msgs.msg import Twist
 from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Directions, TurtleBot4Navigator
+WAYPOINT_FILE = "/home/rokey/rokey_ws/src/rokey_pjt/configs/waypoints.yaml"
 class MoveSubscriber(Node):
     def __init__(self):
-        super().__init__('move_subscriber')
-        self.create_subscription(
-            Int16, '/robot2/packbot', self.moving, 10  
-        )
+        # super().__init__('move_subscriber')
+        # self.create_subscription(
+        #     Int16, '/robot2/packbot', self.moving, 10  
+        # )
         
         # 좌표값 저장할 dictinary
         self.locations = {}
