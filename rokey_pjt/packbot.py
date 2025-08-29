@@ -2,12 +2,12 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16
-from geometry_msgs.msg import PoseStamped
 from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
 from geometry_msgs.msg import PoseStamped
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from tf_transformations import quaternion_from_euler
 import time
+from .mqtt_controller import MqttController
 
 NUM_OF_WAYPOINTS = 4
 
@@ -29,7 +29,7 @@ def create_pose(x, y, yaw_deg, navigator: BasicNavigator) -> PoseStamped:
 
 class Packbot(Node):
     def __init__(self):
-        super().__init__('move_subscriber')
+        super().__init__('packbot')
         self.create_subscription(
             Int16, '/robot2/packbot', self.moving, 10  
         )
@@ -63,12 +63,21 @@ class Packbot(Node):
 
         self.current_index = -1
         self.is_moving = False
+        self.supplybot_current_index = -1
         
         # 좌표값 저장할 dictinary
         self.locations = {}
         # 셋팅 예시 INITIAL_POSE_POSITION = [0.01, 0.01]
         #  Goal.poses=[([0.0,0.0],TurtleBot4Directions.NORTH)]
         # .yaml 파일에서 좌표 불러오기
+
+        def on_message(client, userdata, msg):
+            topic = msg.topic
+            data = msg.payload.decode()
+            self.get_logger().info(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
+            if topic == '/robot2/go_next_waypoint':
+                self.supplybot_current_index = int(data)
+        self.mqttController = MqttController(on_message)
     
     def moving(self, _num):
         num = _num.data
@@ -90,6 +99,7 @@ class Packbot(Node):
             # 장애물 없을 때 정상 주행
             # 4. Waypoint 경로 이동 시작
             self.current_index = -1
+            self.supplybot_current_index = -1
 
             while self.current_index < NUM_OF_WAYPOINTS:
                 nav_start = self.nav_navigator.get_clock().now()
@@ -110,8 +120,15 @@ class Packbot(Node):
                 if result == TaskResult.SUCCEEDED:
                     self.get_logger().info(f'도착 완료')
                     return
+                
                 self.current_index = result
                 self.get_logger().info(f'Waypoint {self.current_index} 까지 도달 완료')
+                self.get_logger().info(f'Waypoint supply {self.supplybot_current_index} 까지 도달 완료')
+
+                # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 떼 까지 대기
+                self.mqttController.publish('/robot1/go_next_waypoint', self.current_index)
+                while self.current_index != self.supplybot_current_index:
+                    time.sleep(0.1)
         else:
             self.get_logger().info(f'도착 완료')
         
