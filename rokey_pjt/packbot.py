@@ -2,9 +2,8 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16
-from paho.mqtt import client as mqtt_client
 from geometry_msgs.msg import PoseStamped
-from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Directions, TurtleBot4Navigator
+from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
 from geometry_msgs.msg import PoseStamped
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from tf_transformations import quaternion_from_euler
@@ -60,7 +59,7 @@ class Packbot(Node):
             create_pose(0.225, 3.04, 90.0, self.nav_navigator),
             # create_pose(3.266, 2.034, 0.0, self.nav_navigator),
         ]
-        # TODO: .yaml
+        # TODO: .yaml 파일 만들어서 불러오기
 
         self.current_index = -1
         self.is_moving = False
@@ -73,7 +72,6 @@ class Packbot(Node):
     
     def moving(self, _num):
         num = _num.data
-        self.get_logger().info(f'num={num}')
 
         if self.is_moving:
             return
@@ -102,7 +100,7 @@ class Packbot(Node):
                     feedback = self.nav_navigator.getFeedback()
                     if feedback:
                         elapsed = self.nav_navigator.get_clock().now() - nav_start
-                        self.nav_navigator.get_logger().info(
+                        self.get_logger().info(
                             f'현재 waypoint: {feedback.current_waypoint + 1}/{NUM_OF_WAYPOINTS}, '
                             f'경과 시간: {elapsed.nanoseconds / 1e9:.1f}초'
                         )
@@ -110,9 +108,16 @@ class Packbot(Node):
                 # 6. 도달한 waypoint 인덱스 확인
                 result = self.nav_navigator.getResult()
                 if result == TaskResult.SUCCEEDED:
+                    self.get_logger().info(f'도착 완료')
                     return
                 self.current_index = result
-                self.nav_navigator.get_logger().info(f'Waypoint {self.current_index} 까지 도달 완료')
+                self.get_logger().info(f'Waypoint {self.current_index} 까지 도달 완료')
+        else:
+            self.get_logger().info(f'도착 완료')
+        
+        if 1 <= num <= 4:
+            self.is_moving = False
+
     
     def docking(self):
         # 7. 자동 도킹 요청
@@ -130,7 +135,6 @@ def main():
     try:
         while rclpy.ok():
             rclpy.spin_once(node)
-            node.is_moving = False
     except KeyboardInterrupt:
         pass
     finally:
