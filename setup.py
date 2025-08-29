@@ -23,6 +23,8 @@ setup(
             'yolo=rokey_pjt.4_tb4_yolov8_obj_det_thread:main',
             'depth_checker=rokey_pjt.depth_checker_mouse_mean:main',
             'tf=rokey_pjt.tf_point_transform:main',
+            'command_center=rokey_pjt.command_center:main',
+            'move_subscriber=rokey_pjy.move_subscriber:main',
         ],
     },
 )

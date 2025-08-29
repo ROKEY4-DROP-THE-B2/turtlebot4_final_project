@@ -7,7 +7,7 @@ class CommandCenter(Node):
     def __init__(self):
         super().__init__('command_center')
         self._publishers = self.create_publisher(
-            Int16, '/robot2/packbot', 10  
+            Int16, '/robot1/packbot', 10  
         )
     
     def publish(self, n):
