@@ -14,11 +14,11 @@ from ultralytics import YOLO
 # ========================
 # 상수 정의
 # ========================
-MODEL_PATH = '/home/rokey/rokey_ws/src/rokey_pjt/model/best.pt'
-RGB_IMAGE_TOPIC = '/robot2/oakd/rgb/preview/image_raw'
-DEPTH_IMAGE_TOPIC = '/robot2/oakd/stereo/image_raw'
-CAMERA_INFO_TOPIC = '/robot2/oakd/stereo/camera_info'
-DISTANCE_INFO_TOPIC = '/robot2/distance'
+MODEL_PATH = '/home/rokey/rokey_ws/model/best_MOH50_polyfit_v11_ver4.pt'
+RGB_IMAGE_TOPIC = '/robot1/oakd/rgb/preview/image_raw'
+DEPTH_IMAGE_TOPIC = '/robot1/oakd/stereo/image_raw'
+CAMERA_INFO_TOPIC = '/robot1/oakd/stereo/camera_info'
+DISTANCE_INFO_TOPIC = '/robot1/distance'
 TARGET_CLASS_ID = 0
 NORMALIZE_DEPTH_RANGE = 3.0
 # ========================
@@ -97,7 +97,7 @@ class YOLOTrackerNode(Node):
                 frame = self.rgb_image_queue.get(timeout=0.1)
             except queue.Empty:
                 continue
-            results = self.model.track(source=frame, persist=True, stream=True, verbose=False)
+            results = self.model.track(source=frame, persist=True, stream=True,conf=0.6, verbose=False)
             with self.data_lock:
                 depth_vis_frame = self.latest_depth_vis_frame
                 raw_depth_frame = self.latest_raw_depth_frame
@@ -107,10 +107,7 @@ class YOLOTrackerNode(Node):
                 display_depth_bgr = cv2.cvtColor(display_depth, cv2.COLOR_GRAY2BGR)
                 display_depth_colored = cv2.applyColorMap(depth_vis_frame, cv2.COLORMAP_JET)
                 self.draw_yolo_results(display_depth_bgr, results, raw_depth_frame)
-                # if frame.shape[1] != display_depth_bgr.shape[1]:
-                #     self.get_logger().info("Resizing")
-                #     display_depth_bgr = cv2.resize(display_depth_bgr, (frame.shape[1], frame.shape[0]))
-                # final_image = np.hstack((frame, display_depth_bgr))
+
                 final_image = np.hstack((frame, display_depth_colored))
                 cv2.imshow(self.window_name, final_image)
             else:
@@ -119,8 +116,9 @@ class YOLOTrackerNode(Node):
             key = cv2.waitKey(1)
             if key == ord('q'):
                 self.should_shutdown = True
-                self.get_logger().info("Q pressed. Shutting down...")
+                #self.get_logger().info("Q pressed. Shutting down...")
                 break
+    
     def draw_yolo_results(self, img, results, depth_frame=None):
         object_count = 0
         for r in results:
@@ -133,22 +131,24 @@ class YOLOTrackerNode(Node):
                 label = self.class_names[cls] if cls < len(self.class_names) else f"class_{cls}"
                 center_x, center_y = (x1 + x2) // 2, (y1 + y2) // 2
                 distance_m = -1.0
-                if depth_frame is not None \
-                    and 0 <= center_y < depth_frame.shape[0] \
-                        and 0 <= center_x < depth_frame.shape[1]:
-                    distance_mm = depth_frame[center_y, center_x]
-                    if distance_mm > 0:
-                        distance_m = distance_mm / 1000.0
-                if distance_m > 0 and label == 'MOH-50' and conf >= 0.7:
+                if depth_frame is not None:
+                    if 0 <= center_y < depth_frame.shape[0] and 0 <= center_x < depth_frame.shape[1]:
+                        distance_mm = depth_frame[center_y, center_x]
+                        if distance_mm > 0:
+                            distance_m = distance_mm / 10.0
+                if distance_m > 0:
                     msg = Float32()
+                    self.get_logger().info(f"cm:{distance_m :.2f}")
+                    self.get_logger().info(f"conf:{conf:.2f}")
                     msg.data = distance_m
                     self.publisher_.publish(msg)
-                    text = f"{conf:.2f} {distance_m:.2f}m"
-
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.putText(img, text, (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
-                    object_count += 1
+                    text = f"{label} {distance_m:.2f}m ({conf:.2f})"
+                else:
+                    text = f"{label} ({conf:.2f})"
+                cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                cv2.putText(img, text, (x1, y1 - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+                object_count += 1
         cv2.putText(img, f"Objects: {object_count}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 # ========================
