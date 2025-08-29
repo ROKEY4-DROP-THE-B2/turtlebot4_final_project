@@ -14,7 +14,8 @@ from ultralytics import YOLO
 # ========================
 # 상수 정의
 # ========================
-MODEL_PATH = '/home/rokey/rokey_ws/model/best_MOH50_polyfit_v11_ver4.pt'
+
+MODEL_PATH = '/home/rokey/rokey_ws/src/rokey_pjt/model/best_MOH50_polyfit_v11_ver4.pt'
 RGB_IMAGE_TOPIC = '/robot1/oakd/rgb/preview/image_raw'
 DEPTH_IMAGE_TOPIC = '/robot1/oakd/stereo/image_raw'
 CAMERA_INFO_TOPIC = '/robot1/oakd/stereo/camera_info'
