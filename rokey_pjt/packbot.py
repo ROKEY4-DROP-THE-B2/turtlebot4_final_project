@@ -2,12 +2,14 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16
+from rclpy.executors import MultiThreadedExecutor
 from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Twist
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from tf_transformations import quaternion_from_euler
 import time
 from .mqtt_controller import MqttController
+import threading
 
 NUM_OF_WAYPOINTS = 4
 
@@ -30,6 +32,9 @@ def create_pose(x, y, yaw_deg, navigator: BasicNavigator) -> PoseStamped:
 class Packbot(Node):
     def __init__(self):
         super().__init__('packbot')
+        # Publisher
+        self.cmd_vel_publisher = self.create_publisher(Twist, '/robot2/cmd_vel', 10)
+        # Subscribe
         self.create_subscription(
             Int16, '/robot2/packbot', self.moving, 10  
         )
@@ -74,10 +79,23 @@ class Packbot(Node):
         def on_message(client, userdata, msg):
             topic = msg.topic
             data = msg.payload.decode()
-            self.get_logger().info(f"Received `{msg.payload.decode()}` from `{msg.topic}` topic")
             if topic == '/robot2/go_next_waypoint':
                 self.supplybot_current_index = int(data)
-        self.mqttController = MqttController(on_message)
+                self.get_logger().info(f"변경됨 self.supplybot_current_index={self.supplybot_current_index}")
+
+        self.mqttController = MqttController('/robot2/go_next_waypoint', on_message)
+        # MQTT 스레드 시작
+        self.mqtt_thread = threading.Thread(target=self.mqttController.start_mqtt, args=(), daemon=True)
+        self.mqtt_thread.start()
+
+        self.nav_navigator.get_logger().info(f'Initialized.')
+    
+    def pause(self):
+        self.nav_navigator.cancelTask()
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.angular.z = 0.0
+        self.cmd_vel_publisher.publish(twist)
     
     def moving(self, _num):
         num = _num.data
@@ -101,38 +119,68 @@ class Packbot(Node):
             self.current_index = -1
             self.supplybot_current_index = -1
 
-            while self.current_index < NUM_OF_WAYPOINTS:
-                nav_start = self.nav_navigator.get_clock().now()
-                self.nav_navigator.followWaypoints(self.waypoints)
+            # 좌표배열 순서대로 이동 수행 
+            self.nav_navigator.followWaypoints(self.waypoints)
 
-                # 5. 이동 중 피드백 확인
-                while not self.nav_navigator.isTaskComplete():
-                    feedback = self.nav_navigator.getFeedback()
-                    if feedback:
-                        elapsed = self.nav_navigator.get_clock().now() - nav_start
-                        self.get_logger().info(
-                            f'현재 waypoint: {feedback.current_waypoint + 1}/{NUM_OF_WAYPOINTS}, '
-                            f'경과 시간: {elapsed.nanoseconds / 1e9:.1f}초'
-                        )
+            # 5. 이동 중 피드백 확인
+            while not self.nav_navigator.isTaskComplete():
+                feedback = self.nav_navigator.getFeedback()
+                if feedback:
+                    self.get_logger().info(
+                        f'현재 waypoint: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
+                        f'sci={self.supplybot_current_index}'
+                    )
 
-                # 6. 도달한 waypoint 인덱스 확인
-                result = self.nav_navigator.getResult()
-                if result == TaskResult.SUCCEEDED:
-                    self.get_logger().info(f'도착 완료')
-                    return
-                
-                self.current_index = result
-                self.get_logger().info(f'Waypoint {self.current_index} 까지 도달 완료')
-                self.get_logger().info(f'Waypoint supply {self.supplybot_current_index} 까지 도달 완료')
+                    # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
+                    if self.current_index == -1 and feedback.current_waypoint == 1:
+                        self.current_index += 1
+                    elif (self.current_index > 0 and feedback.current_waypoint == 1) \
+                        or (self.current_index == 0 and feedback.current_waypoint == 2):
+                        self.current_index += 1
+                        # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
+                        self.mqttController.publish('/robot1/go_next_waypoint', self.current_index)
+                        # 대기 명령 내림
+                        self.pause()
+                        
+                        while self.current_index != self.supplybot_current_index + 1:
+                            time.sleep(0.1)
+                        
+                        if self.current_index < NUM_OF_WAYPOINTS:
+                            remaining_waypoints = self.waypoints[self.current_index:]
+                            self.nav_navigator.followWaypoints(remaining_waypoints)
 
-                # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 떼 까지 대기
-                self.mqttController.publish('/robot1/go_next_waypoint', self.current_index)
-                while self.current_index != self.supplybot_current_index:
-                    time.sleep(0.1)
+            # 6. 도달한 waypoint 인덱스 확인
+            result = self.nav_navigator.getResult()
+            self.get_logger().info(f'{result}')
+
+        elif num == 5:
+            goal_pose = create_pose(3.266, 2.034, 0.0, self.nav_navigator)
+            self.nav_navigator.goToPose(goal_pose)
+
+            # 4. 이동 중 피드백 표시
+            while not self.nav_navigator.isTaskComplete():
+                feedback = self.nav_navigator.getFeedback()
+                if feedback:
+                    remaining = feedback.distance_remaining
+                    self.nav_navigator.get_logger().info(f'남은 거리: {remaining:.2f} m')
+
+            # 5. 결과 확인
+            result = self.nav_navigator.getResult()
+            if result == TaskResult.SUCCEEDED:
+                self.nav_navigator.get_logger().info('목표 위치 도달 성공')
+            elif result == TaskResult.CANCELED:
+                self.nav_navigator.get_logger().warn('이동이 취소되었습니다.')
+            elif result == TaskResult.FAILED:
+                error_code, error_msg = self.nav_navigator.getTaskError()
+                self.nav_navigator.get_logger().error(f'이동 실패: {error_code} - {error_msg}')
+            else:
+                self.nav_navigator.get_logger().warn('알 수 없는 결과 코드 수신')
+            
+            self.docking()
         else:
-            self.get_logger().info(f'도착 완료')
+            self.get_logger().info(f'유효하지 않은 입력값')
         
-        if 1 <= num <= 4:
+        if 1 <= num <= 5:
             self.is_moving = False
 
     
@@ -141,21 +189,20 @@ class Packbot(Node):
         self.get_logger().info('도킹 요청 완료')
         self.dock_navigator.dock()
         # 8. 종료 처리
-        self.dock_navigator.destroy_node()
-        self.nav_navigator.destroy_node()
 
 
 def main():
     rclpy.init()
     node = Packbot()
-
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
     try:
-        while rclpy.ok():
-            rclpy.spin_once(node)
+        executor.spin()
     except KeyboardInterrupt:
-        pass
+        node.nav_navigator.cancelTask()
     finally:
-        node.docking()
+        node.dock_navigator.destroy_node()
+        node.nav_navigator.destroy_node()
         node.destroy_node()
         rclpy.shutdown()
 
