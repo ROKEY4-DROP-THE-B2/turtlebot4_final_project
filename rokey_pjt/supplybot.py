@@ -58,10 +58,10 @@ class Supplybot(Node):
 
         # 3. 개별 Pose 생성 (경유지 명시)
         self.waypoints = [
+            create_pose(4.663, 2.581, 0.0, self.nav_navigator),
             create_pose(3.266, 2.034, 90.0, self.nav_navigator),
             create_pose(2.32, 0.39, 180.0, self.nav_navigator),
             create_pose(0.46, 0.46, -90.0, self.nav_navigator),
-            # create_pose(0.225, 3.04, 90.0, self.nav_navigator),
         ]
         # TODO: .yaml 파일 만들어서 불러오기
 
@@ -72,7 +72,7 @@ class Supplybot(Node):
         def on_message(client, userdata, msg):
             data = msg.payload.decode()
             self.packbot_current_index = int(data)
-            self.get_logger().info(f"변경됨 self.supplybot_current_index={self.supplybot_current_index}")
+            self.get_logger().info(f"변경됨 self.packbot_current_index={self.packbot_current_index}")
         
         self.mqttController = MqttController(f'{MY_NAMESPACE}/go_next_waypoint', on_message)
         # MQTT 스레드 시작
