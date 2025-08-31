@@ -140,6 +140,7 @@ class Packbot(Node):
             # 6. 도달한 waypoint 인덱스 확인
             result = self.nav_navigator.getResult()
             if result == TaskResult.SUCCEEDED:
+                self.current_index += 1
                 self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
             self.get_logger().info(f'{result}')
 
