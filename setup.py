@@ -25,6 +25,8 @@ setup(
             'tf=rokey_pjt.tf_point_transform:main',
             'packbot=rokey_pjt.packbot:main',
             'supplybot=rokey_pjt.supplybot:main',
+            'packbot_cc=rokey_pjt.packbot_command_center:main',
+            'supplybot_cc=rokey_pjt.supplybot_command_center:main',
         ],
     },
 )

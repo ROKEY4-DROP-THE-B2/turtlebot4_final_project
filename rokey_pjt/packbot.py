@@ -70,11 +70,9 @@ class Packbot(Node):
         self.supplybot_current_index = -1
 
         def on_message(client, userdata, msg):
-            topic = msg.topic
             data = msg.payload.decode()
-            if topic == f'{MY_NAMESPACE}/go_next_waypoint':
-                self.supplybot_current_index = int(data)
-                self.get_logger().info(f"변경됨 self.supplybot_current_index={self.supplybot_current_index}")
+            self.supplybot_current_index = int(data)
+            self.get_logger().info(f"변경됨 self.supplybot_current_index={self.supplybot_current_index}")
 
         self.mqttController = MqttController(f'{MY_NAMESPACE}/go_next_waypoint', on_message)
         # MQTT 스레드 시작
@@ -189,6 +187,7 @@ def main():
     except KeyboardInterrupt:
         node.nav_navigator.cancelTask()
     finally:
+        executor.shutdown()
         node.mqttController.stop_mqtt()
         node.dock_navigator.destroy_node()
         node.nav_navigator.destroy_node()
