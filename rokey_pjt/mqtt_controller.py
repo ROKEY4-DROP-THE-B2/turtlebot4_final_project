@@ -29,3 +29,6 @@ class MqttController:
         result = self.client.publish(topic, msg)
         status = result[0]
         return SUCCEEDED if status == 0 else FAILED
+    
+    def stop_mqtt(self):
+        self.client.loop_stop()
