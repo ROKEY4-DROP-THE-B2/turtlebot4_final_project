@@ -6,7 +6,7 @@ from rclpy.executors import MultiThreadedExecutor
 from mqtt_controller import MqttController
 import time, threading
 
-NUM_OF_WAYPOINTS = 4
+NUM_OF_WAYPOINTS = 3
 
 class Supplybot(Node):
     def __init__(self):
@@ -72,7 +72,7 @@ def main():
     try:
         executor.spin()
     except KeyboardInterrupt:
-        pass
+        node.mqttController.stop_mqtt()
     finally:
         node.destroy_node()
         rclpy.shutdown()

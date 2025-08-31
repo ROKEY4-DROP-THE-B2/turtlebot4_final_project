@@ -62,7 +62,6 @@ class Packbot(Node):
             create_pose(2.32, 0.39, 180.0, self.nav_navigator),
             create_pose(0.46, 0.46, -90.0, self.nav_navigator),
             create_pose(0.225, 3.04, 90.0, self.nav_navigator),
-            # create_pose(3.266, 2.034, 0.0, self.nav_navigator),
         ]
         # TODO: .yaml 파일 만들어서 불러오기
 
@@ -116,7 +115,7 @@ class Packbot(Node):
         elif num == 4:
             # 장애물 없을 때 정상 주행
             # 4. Waypoint 경로 이동 시작
-            self.current_index = -1
+            self.current_index = 0
             self.supplybot_current_index = -1
 
             # 좌표배열 순서대로 이동 수행 
@@ -132,10 +131,7 @@ class Packbot(Node):
                     )
 
                     # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
-                    if self.current_index == -1 and feedback.current_waypoint == 1:
-                        self.current_index += 1
-                    elif (self.current_index > 0 and feedback.current_waypoint == 1) \
-                        or (self.current_index == 0 and feedback.current_waypoint == 2):
+                    if feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
                         self.mqttController.publish('/robot1/go_next_waypoint', self.current_index)
@@ -143,7 +139,7 @@ class Packbot(Node):
                         self.pause()
                         
                         while self.current_index != self.supplybot_current_index + 1:
-                            time.sleep(0.1)
+                            pass
                         
                         if self.current_index < NUM_OF_WAYPOINTS:
                             remaining_waypoints = self.waypoints[self.current_index:]
@@ -201,6 +197,7 @@ def main():
     except KeyboardInterrupt:
         node.nav_navigator.cancelTask()
     finally:
+        node.mqttController.stop_mqtt()
         node.dock_navigator.destroy_node()
         node.nav_navigator.destroy_node()
         node.destroy_node()
