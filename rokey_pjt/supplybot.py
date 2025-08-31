@@ -9,7 +9,7 @@ from tf_transformations import quaternion_from_euler
 import time, threading
 from .mqtt_controller import MqttController
 
-NUM_OF_WAYPOINTS = 4
+NUM_OF_WAYPOINTS = 5
 MY_NAMESPACE = '/robot1'
 OTHER_NAMESPACE = '/robot2'
 
@@ -62,6 +62,7 @@ class Supplybot(Node):
             create_pose(3.266, 2.034, 90.0, self.nav_navigator),
             create_pose(2.32, 0.39, 180.0, self.nav_navigator),
             create_pose(0.46, 0.46, -90.0, self.nav_navigator),
+            create_pose(0.414, 3.101, 90.0, self.nav_navigator),
         ]
         # TODO: .yaml 파일 만들어서 불러오기
 
@@ -131,12 +132,13 @@ class Supplybot(Node):
                     if feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 정찰로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
-                        self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.supplybot_current_index())
-                        # 대기 명령 내림
-                        self.pause()
-                        while self.supplybot_current_index() != self.packbot_current_index - 2:
-                            pass
-                        
+                        if self.current_index < 4:
+                            self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.supplybot_current_index())
+                            # 대기 명령 내림
+                            self.pause()
+                            while self.supplybot_current_index() != self.packbot_current_index - 2:
+                                pass
+                            
                         if self.current_index < NUM_OF_WAYPOINTS:
                             remaining_waypoints = self.waypoints[self.current_index:]
                             self.nav_navigator.followWaypoints(remaining_waypoints)
