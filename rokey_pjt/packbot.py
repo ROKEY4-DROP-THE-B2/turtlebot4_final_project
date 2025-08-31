@@ -44,7 +44,7 @@ class Packbot(Node):
         self.nav_navigator = BasicNavigator()
 
         # 1. 초기 위치 설정
-        initial_pose = create_pose(4.767, 2.581, 0.0, self.nav_navigator)
+        initial_pose = create_pose(4.663, 2.581, 0.0, self.nav_navigator)
         self.nav_navigator.setInitialPose(initial_pose)
         self.nav_navigator.get_logger().info(f'초기 위치 설정 중...')
         time.sleep(1.0) #AMCL이 초기 pose 처리 시 필요한 시간과 TF를 얻을 수 있게 됨
