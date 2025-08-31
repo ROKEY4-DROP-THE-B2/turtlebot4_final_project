@@ -1,4 +1,3 @@
-# tf_point_transform.py
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Int16
@@ -7,11 +6,12 @@ from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
 from geometry_msgs.msg import PoseStamped, Twist
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from tf_transformations import quaternion_from_euler
-import time
+import time, threading
 from .mqtt_controller import MqttController
-import threading
 
 NUM_OF_WAYPOINTS = 4
+MY_NAMESPACE = '/robot2'
+OTHER_NAMESPACE = '/robot1'
 
 def create_pose(x, y, yaw_deg, navigator: BasicNavigator) -> PoseStamped:
     """x, y, yaw(도 단위) → PoseStamped 생성"""
@@ -33,10 +33,10 @@ class Packbot(Node):
     def __init__(self):
         super().__init__('packbot')
         # Publisher
-        self.cmd_vel_publisher = self.create_publisher(Twist, '/robot2/cmd_vel', 10)
+        self.cmd_vel_publisher = self.create_publisher(Twist, f'{MY_NAMESPACE}/cmd_vel', 10)
         # Subscribe
         self.create_subscription(
-            Int16, '/robot2/packbot', self.moving, 10  
+            Int16, f'{MY_NAMESPACE}/move', self.moving, 10  
         )
 
         # 도킹 및 경로 이동용 Navigator
@@ -68,21 +68,15 @@ class Packbot(Node):
         self.current_index = -1
         self.is_moving = False
         self.supplybot_current_index = -1
-        
-        # 좌표값 저장할 dictinary
-        self.locations = {}
-        # 셋팅 예시 INITIAL_POSE_POSITION = [0.01, 0.01]
-        #  Goal.poses=[([0.0,0.0],TurtleBot4Directions.NORTH)]
-        # .yaml 파일에서 좌표 불러오기
 
         def on_message(client, userdata, msg):
             topic = msg.topic
             data = msg.payload.decode()
-            if topic == '/robot2/go_next_waypoint':
+            if topic == f'{MY_NAMESPACE}/go_next_waypoint':
                 self.supplybot_current_index = int(data)
                 self.get_logger().info(f"변경됨 self.supplybot_current_index={self.supplybot_current_index}")
 
-        self.mqttController = MqttController('/robot2/go_next_waypoint', on_message)
+        self.mqttController = MqttController(f'{MY_NAMESPACE}/go_next_waypoint', on_message)
         # MQTT 스레드 시작
         self.mqtt_thread = threading.Thread(target=self.mqttController.start_mqtt, args=(), daemon=True)
         self.mqtt_thread.start()
@@ -126,15 +120,15 @@ class Packbot(Node):
                 feedback = self.nav_navigator.getFeedback()
                 if feedback:
                     self.get_logger().info(
-                        f'현재 waypoint: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
-                        f'sci={self.supplybot_current_index}'
+                        f'현재 목적지: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
+                        f'supplybot 위치: {self.supplybot_current_index}/{NUM_OF_WAYPOINTS}'
                     )
 
                     # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
                     if feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
-                        self.mqttController.publish('/robot1/go_next_waypoint', self.current_index)
+                        self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
                         # 대기 명령 내림
                         self.pause()
                         
@@ -178,13 +172,11 @@ class Packbot(Node):
         
         if 1 <= num <= 5:
             self.is_moving = False
-
     
     def docking(self):
         # 7. 자동 도킹 요청
         self.get_logger().info('도킹 요청 완료')
         self.dock_navigator.dock()
-        # 8. 종료 처리
 
 
 def main():
