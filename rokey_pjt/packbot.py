@@ -61,7 +61,7 @@ class Packbot(Node):
             create_pose(3.266, 2.034, 90.0, self.nav_navigator),
             create_pose(2.32, 0.39, 180.0, self.nav_navigator),
             create_pose(0.46, 0.46, -90.0, self.nav_navigator),
-            create_pose(0.225, 3.04, 90.0, self.nav_navigator),
+            create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
         ]
         # TODO: .yaml 파일 만들어서 불러오기
 
@@ -139,6 +139,8 @@ class Packbot(Node):
 
             # 6. 도달한 waypoint 인덱스 확인
             result = self.nav_navigator.getResult()
+            if result == TaskResult.SUCCEEDED:
+                self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
             self.get_logger().info(f'{result}')
 
         elif num == 5:
