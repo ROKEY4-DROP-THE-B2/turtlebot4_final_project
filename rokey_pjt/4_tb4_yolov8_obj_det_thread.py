@@ -114,10 +114,10 @@ class YOLOTrackerNode(Node):
                 self.draw_yolo_results(display_depth_bgr, results, raw_depth_frame)
 
                 # final_image = np.hstack((frame, display_depth_colored))
-                cv2.imshow(self.window_name, frame)
+                # cv2.imshow(self.window_name, frame)
             else:
                 self.draw_yolo_results(frame, results, depth_frame=None)
-                cv2.imshow(self.window_name, frame)
+                # cv2.imshow(self.window_name, frame)
             key = cv2.waitKey(1)
             if key == ord('q'):
                 self.should_shutdown = True
@@ -140,7 +140,7 @@ class YOLOTrackerNode(Node):
                     if 0 <= center_y < depth_frame.shape[0] and 0 <= center_x < depth_frame.shape[1]:
                         distance_mm = depth_frame[center_y, center_x]
                         if distance_mm > 0:
-                            distance_m = distance_mm / 10.0
+                            distance_m = distance_mm / 1000.0
                 if distance_m > 0:
                     msg = Float32()
                     if self.log==False:

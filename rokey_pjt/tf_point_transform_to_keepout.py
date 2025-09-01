@@ -33,7 +33,7 @@ class TfPointTransform(Node):
         self.start_timer = self.create_timer(5.0, self.start_transform)
 
       
-        self.map_sub = self.create_subscription(OccupancyGrid, '/map', self.map_cb, 10)
+        
         
 
         map_qos = QoSProfile(
