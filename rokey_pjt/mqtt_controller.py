@@ -16,7 +16,9 @@ class MqttController:
         if isinstance(topics, str):
             self.topics = [(topics, 2)]
         else:
-            self.topics = map(topics, lambda x: (x, 2))
+            self.topics = []
+            for topic in topics:
+                self.topics.append((topic, 2))
         self._on_message = on_message_callback
 
     def start_mqtt(self):
