@@ -23,9 +23,14 @@ setup(
             'yolo=rokey_pjt.4_tb4_yolov8_obj_det_thread:main',
             'depth_checker=rokey_pjt.depth_checker_mouse_mean:main',
             'tf=rokey_pjt.tf_point_transform:main',
-            'tf_keepout==rokey_pjt.tf_point_transform_to_keepout:main'
+            'tf_keepout=rokey_pjt.tf_point_transform_to_keepout:main',
             'command_center=rokey_pjt.command_center:main',
-            'move_subscriber=rokey_pjy.move_subscriber:main',
+            'move_subscriber=rokey_pjt.move_subscriber:main',
+            'click=rokey_pjt.click_point:main',
+            'packbot=rokey_pjt.packbot:main',
+            'supplybot=rokey_pjt.supplybot:main',
+            'packbot_cc=rokey_pjt.packbot_command_center:main',
+            'supplybot_cc=rokey_pjt.supplybot_command_center:main',
         ],
     },
 )
