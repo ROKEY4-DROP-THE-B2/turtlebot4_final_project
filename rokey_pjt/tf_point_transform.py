@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Vector3
 import tf2_ros
 import tf2_geometry_msgs  # 꼭 필요
 from visualization_msgs.msg import Marker
@@ -10,6 +10,7 @@ from visualization_msgs.msg import Marker
 NORMALIZE_DEPTH_RANGE = 3.0
 DISTANCE_INFO_TOPIC = '/robot2/distance'
 MARKER_TOPIC = 'detected_objects_marker'
+ENEMY_DETECTED = 'enemy_detected'
 
 class TfPointTransform(Node):
     def __init__(self):
@@ -30,6 +31,7 @@ class TfPointTransform(Node):
         )
         
         self.marker_pub = self.create_publisher(Marker, MARKER_TOPIC, 10)
+        self.detect_enemy_publisher = self.create_publisher(Vector3, ENEMY_DETECTED, 10)
 
     def publish_marker(self, x, y, z):
         marker = Marker()
@@ -43,6 +45,15 @@ class TfPointTransform(Node):
         marker.color.r, marker.color.g, marker.color.b, marker.color.a = 1.0, 1.0, 0.0, 1.0
         marker.lifetime.sec = 5
         self.marker_pub.publish(marker)
+    
+    def publish_enemy_detected(self):
+        position = self.get_current_position()
+        if position is not None:
+            msg = Vector3()
+            msg.x = position.x
+            msg.y = position.y
+            msg.z = position.z
+            self.detect_enemy_publisher.publish(msg)
     
     def distance_subscription_callback(self, msg):
         distance = msg.data
@@ -63,6 +74,7 @@ class TfPointTransform(Node):
                     timeout=rclpy.duration.Duration(seconds=0.5)
                 )
                 self.publish_marker(point_map.point.x, point_map.point.y, point_map.point.z)
+                self.publish_enemy_detected()
                 self.get_logger().info(f"[Base_link] ({point_base.point.x:.2f}, {point_base.point.y:.2f}, {point_base.point.z:.2f})")
                 self.get_logger().info(f"[Map]       ({point_map.point.x:.2f}, {point_map.point.y:.2f}, {point_map.point.z:.2f})")
             except Exception as e:
@@ -70,7 +82,22 @@ class TfPointTransform(Node):
 
         except Exception as e:
             self.get_logger().warn(f"Unexpected error: {e}")
+    
+    def get_current_position(self):
+        try:
+            # 'map' 프레임에 대한 'base_link'의 변환을 가져옴
+            transform = self.tf_buffer.lookup_transform(
+                'map',
+                'base_link',
+                rclpy.time.Time()
+            )
 
+            position = transform.transform.translation
+            return position
+        except Exception as e:
+            self.get_logger().error(f"Failed to get current_location: {e}")
+            return None
+    
     def start_transform(self):
         self.get_logger().info("TF Tree 안정화 완료. 변환 시작합니다.")
 

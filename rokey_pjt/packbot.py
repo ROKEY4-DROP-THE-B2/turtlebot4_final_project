@@ -3,10 +3,10 @@ from rclpy.node import Node
 from std_msgs.msg import Int16
 from rclpy.executors import MultiThreadedExecutor
 from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
-from geometry_msgs.msg import PoseStamped, Twist
+from geometry_msgs.msg import PoseStamped, Twist, Vector3
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
 from tf_transformations import quaternion_from_euler
-import time, threading
+import time, threading, math
 from .mqtt_controller import MqttController
 
 NUM_OF_WAYPOINTS = 4
@@ -29,6 +29,25 @@ def create_pose(x, y, yaw_deg, navigator: BasicNavigator) -> PoseStamped:
     pose.pose.orientation.w = q[3]
     return pose
 
+def find_closest_point_index(point, array):
+    min_distance = float('inf')  # 최소 거리를 무한대로 초기화
+    closest_index = -1           # 가장 가까운 원소의 인덱스 초기화
+
+    x1, y1 = point
+
+    for index, point_B in enumerate(array):
+        x2, y2 = point_B
+
+        # 유클리드 거리 계산
+        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+        # 현재 거리가 최소 거리보다 작으면 갱신
+        if distance < min_distance:
+            min_distance = distance
+            closest_index = index
+
+    return closest_index
+
 class Packbot(Node):
     def __init__(self):
         super().__init__('packbot')
@@ -37,6 +56,10 @@ class Packbot(Node):
         # Subscribe
         self.create_subscription(
             Int16, f'{MY_NAMESPACE}/move', self.moving, 10  
+        )
+
+        self.create_subscription(
+            Vector3, 'enemy_detected', self.change_waypoint, 10  
         )
 
         # 도킹 및 경로 이동용 Navigator
@@ -58,16 +81,24 @@ class Packbot(Node):
 
         # 3. 개별 Pose 생성 (경유지 명시)
         self.waypoints = [
-            create_pose(3.266, 2.034, 90.0, self.nav_navigator),
-            create_pose(2.32, 0.39, 180.0, self.nav_navigator),
-            create_pose(0.46, 0.46, -90.0, self.nav_navigator),
-            create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
+            [
+                create_pose(3.266, 2.034, 90.0, self.nav_navigator),
+                create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
+            ],
+            [
+                create_pose(3.266, 2.034, 90.0, self.nav_navigator),
+                create_pose(2.32, 0.39, 180.0, self.nav_navigator),
+                create_pose(0.46, 0.46, -90.0, self.nav_navigator),
+                create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
+            ],
         ]
         # TODO: .yaml 파일 만들어서 불러오기
 
         self.current_index = -1
         self.is_moving = False
         self.supplybot_current_index = -1
+        self.course_index = 0
+        self.is_course_changed = False
 
         def on_message(client, userdata, msg):
             data = msg.payload.decode()
@@ -109,9 +140,11 @@ class Packbot(Node):
             # 4. Waypoint 경로 이동 시작
             self.current_index = 0
             self.supplybot_current_index = -1
+            self.course_index = 0
+            self.is_course_changed = False
 
             # 좌표배열 순서대로 이동 수행 
-            self.nav_navigator.followWaypoints(self.waypoints)
+            self.nav_navigator.followWaypoints(self.waypoints[self.course_index])
 
             # 5. 이동 중 피드백 확인
             while not self.nav_navigator.isTaskComplete():
@@ -121,6 +154,15 @@ class Packbot(Node):
                         f'현재 목적지: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
                         f'supplybot 위치: {self.supplybot_current_index}/{NUM_OF_WAYPOINTS}'
                     )
+
+                    # 적군 감지 시 코스 변경
+                    if self.is_course_changed:
+                        self.is_course_changed = False
+                        self.pause()
+
+                        remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
+                        self.nav_navigator.followWaypoints(remaining_waypoints)
+                        continue
 
                     # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
                     if feedback.current_waypoint == 1:
@@ -134,7 +176,7 @@ class Packbot(Node):
                             pass
                         
                         if self.current_index < NUM_OF_WAYPOINTS:
-                            remaining_waypoints = self.waypoints[self.current_index:]
+                            remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
                             self.nav_navigator.followWaypoints(remaining_waypoints)
 
             # 6. 도달한 waypoint 인덱스 확인
@@ -173,6 +215,16 @@ class Packbot(Node):
         
         if 1 <= num <= 5:
             self.is_moving = False
+    
+    def change_waypoint(self, msg: Vector3):
+        x, y = msg.x, msg.y
+        self.course_index = 1
+        self.current_index = max(0, find_closest_point_index((x, y), self.waypoints[self.course_index]) - 1)
+        self.is_course_changed = True
+        self.mqttController.publish(f'enemy_detected', self.current_index)
+
+        self.get_logger().info(f"현재 위치 index = {self.current_index}")
+        self.get_logger().info(f"적군을 감지하여 {self.course_index + 1}번 경로로 탐색합니다.")
     
     def docking(self):
         # 7. 자동 도킹 요청
