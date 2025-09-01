@@ -11,9 +11,12 @@ SUCCEEDED = 0
 FAILED = 1
 
 class MqttController:
-    def __init__(self, topic, on_message_callback):
+    def __init__(self, topics, on_message_callback):
         self.client = None
-        self.topic = topic
+        if isinstance(topics, str):
+            self.topics = [(topics, 2)]
+        else:
+            self.topics = map(topics, lambda x: (x, 2))
         self._on_message = on_message_callback
 
     def start_mqtt(self):
@@ -22,7 +25,7 @@ class MqttController:
         self.client.username_pw_set(username, password)
         self.client.on_message = self._on_message
         self.client.connect(broker, port)
-        self.client.subscribe(self.topic)
+        self.client.subscribe(self.topics)
         self.client.loop_forever()
 
     def publish(self, topic, msg):

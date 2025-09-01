@@ -72,10 +72,12 @@ class Supplybot(Node):
         
         def on_message(client, userdata, msg):
             data = msg.payload.decode()
-            self.packbot_current_index = int(data)
-            self.get_logger().info(f"변경됨 self.packbot_current_index={self.packbot_current_index}")
         
-        self.mqttController = MqttController(f'{MY_NAMESPACE}/go_next_waypoint', on_message)
+        topics = [
+            f'{MY_NAMESPACE}/go_next_waypoint',
+            'enemy_detected',
+        ]
+        self.mqttController = MqttController(topics, on_message)
         # MQTT 스레드 시작
         self.mqtt_thread = threading.Thread(target=self.mqttController.start_mqtt, args=(), daemon=True)
         self.mqtt_thread.start()
