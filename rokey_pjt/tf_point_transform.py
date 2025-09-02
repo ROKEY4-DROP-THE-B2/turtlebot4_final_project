@@ -30,21 +30,21 @@ class TfPointTransform(Node):
             Float32, DISTANCE_INFO_TOPIC, self.distance_subscription_callback, 10
         )
         
-        self.marker_pub = self.create_publisher(Marker, MARKER_TOPIC, 10)
+        # self.marker_pub = self.create_publisher(Marker, MARKER_TOPIC, 10)
         self.detect_enemy_publisher = self.create_publisher(Vector3, ENEMY_DETECTED, 10)
 
-    def publish_marker(self, x, y, z):
-        marker = Marker()
-        marker.header.frame_id = 'map'
-        marker.header.stamp = self.get_clock().now().to_msg()
-        marker.ns = 'detected_objects'
-        marker.type, marker.action = Marker.SPHERE, Marker.ADD
-        marker.pose.position.x, marker.pose.position.y, marker.pose.position.z = x, y, z
-        marker.pose.orientation.w = 1.0
-        marker.scale.x = marker.scale.y = marker.scale.z = 0.2
-        marker.color.r, marker.color.g, marker.color.b, marker.color.a = 1.0, 1.0, 0.0, 1.0
-        marker.lifetime.sec = 5
-        self.marker_pub.publish(marker)
+    # def publish_marker(self, x, y, z):
+    #     marker = Marker()
+    #     marker.header.frame_id = 'map'
+    #     marker.header.stamp = self.get_clock().now().to_msg()
+    #     marker.ns = 'detected_objects'
+    #     marker.type, marker.action = Marker.SPHERE, Marker.ADD
+    #     marker.pose.position.x, marker.pose.position.y, marker.pose.position.z = x, y, z
+    #     marker.pose.orientation.w = 1.0
+    #     marker.scale.x = marker.scale.y = marker.scale.z = 0.2
+    #     marker.color.r, marker.color.g, marker.color.b, marker.color.a = 1.0, 1.0, 0.0, 1.0
+    #     marker.lifetime.sec = 5
+    #     self.marker_pub.publish(marker)
     
     def publish_enemy_detected(self):
         position = self.get_current_position()
@@ -73,7 +73,7 @@ class TfPointTransform(Node):
                     'map',
                     timeout=rclpy.duration.Duration(seconds=0.5)
                 )
-                self.publish_marker(point_map.point.x, point_map.point.y, point_map.point.z)
+                # self.publish_marker(point_map.point.x, point_map.point.y, point_map.point.z)
                 self.publish_enemy_detected()
                 self.get_logger().info(f"[Base_link] ({point_base.point.x:.2f}, {point_base.point.y:.2f}, {point_base.point.z:.2f})")
                 self.get_logger().info(f"[Map]       ({point_map.point.x:.2f}, {point_map.point.y:.2f}, {point_map.point.z:.2f})")
