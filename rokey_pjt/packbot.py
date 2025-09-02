@@ -231,15 +231,15 @@ class Packbot(Node):
             self.is_moving = False
     
     def change_waypoint(self, msg: Vector3):
-        if self.course_index == 0:
+        if self.is_moving and self.course_index == 0:
             x, y = msg.x, msg.y
             self.course_index = 1
             self.current_index = max(0, find_closest_point_index((x, y), self.waypoints[self.course_index]) - 1)
             self.is_course_changed = True
             self.mqttController.publish(f'enemy_detected', self.current_index)
 
-        self.get_logger().info(f"현재 위치 index = {self.current_index}")
-        self.get_logger().info(f"적군을 감지하여 {self.course_index + 1}번 경로로 탐색합니다.")
+            self.get_logger().info(f"현재 위치 index = {self.current_index}")
+            self.get_logger().info(f"적군을 감지하여 {self.course_index + 1}번 경로로 탐색합니다.")
     
     def docking(self):
         # 7. 자동 도킹 요청
