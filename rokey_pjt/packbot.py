@@ -82,14 +82,14 @@ class Packbot(Node):
         # 3. 개별 Pose 생성 (경유지 명시)
         self.waypoints = [
             [
-                create_pose(3.266, 2.034, 90.0, self.nav_navigator),
+                create_pose(3.266, 2.034, 0.0, self.nav_navigator),
                 create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
             ],
             [
-                create_pose(3.266, 2.034, 90.0, self.nav_navigator),
-                create_pose(2.32, 0.39, 180.0, self.nav_navigator),
-                create_pose(0.46, 0.46, -90.0, self.nav_navigator),
-                create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
+                create_pose(3.266, 2.034, 0.0, self.nav_navigator),
+                create_pose(2.32, 0.39, -90.0, self.nav_navigator),
+                create_pose(0.46, 0.46, 0.0, self.nav_navigator),
+                create_pose(-0.0309, 3.053, 90.0, self.nav_navigator),
             ],
         ]
         # TODO: .yaml 파일 만들어서 불러오기
