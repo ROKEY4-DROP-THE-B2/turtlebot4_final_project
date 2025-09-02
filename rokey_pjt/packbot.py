@@ -5,6 +5,7 @@ from rclpy.executors import MultiThreadedExecutor
 from turtlebot4_navigation.turtlebot4_navigator import TurtleBot4Navigator
 from geometry_msgs.msg import PoseStamped, Twist, Vector3
 from nav2_simple_commander.robot_navigator import BasicNavigator, TaskResult
+from rclpy.callback_groups import ReentrantCallbackGroup
 from tf_transformations import quaternion_from_euler
 import time, threading, math
 from .mqtt_controller import MqttController
@@ -12,6 +13,7 @@ from .mqtt_controller import MqttController
 NUM_OF_WAYPOINTS = 4
 MY_NAMESPACE = '/robot2'
 OTHER_NAMESPACE = '/robot1'
+ENEMY_DETECTED = f'{MY_NAMESPACE}/enemy_detected'
 
 def create_pose(x, y, yaw_deg, navigator: BasicNavigator) -> PoseStamped:
     """x, y, yaw(도 단위) → PoseStamped 생성"""
@@ -51,15 +53,18 @@ def find_closest_point_index(point, array):
 class Packbot(Node):
     def __init__(self):
         super().__init__('packbot')
+        self.reentrant_cbg = ReentrantCallbackGroup()
         # Publisher
         self.cmd_vel_publisher = self.create_publisher(Twist, f'{MY_NAMESPACE}/cmd_vel', 10)
         # Subscribe
         self.create_subscription(
-            Int16, f'{MY_NAMESPACE}/move', self.moving, 10  
+            Int16, f'{MY_NAMESPACE}/move', self.moving, 10,
+            callback_group=self.reentrant_cbg
         )
 
         self.create_subscription(
-            Vector3, 'enemy_detected', self.change_waypoint, 10  
+            Vector3, ENEMY_DETECTED, self.change_waypoint, 10,
+            callback_group=self.reentrant_cbg
         )
 
         # 도킹 및 경로 이동용 Navigator
