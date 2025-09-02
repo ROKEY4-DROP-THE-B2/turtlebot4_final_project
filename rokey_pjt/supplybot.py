@@ -59,6 +59,7 @@ class Supplybot(Node):
         self.waypoints = [
             [
                 create_pose(4.638, 1.465, 0.0, self.nav_navigator),
+                create_pose(3.266, 2.034, 0.0, self.nav_navigator),
                 create_pose(0.414, 3.101, 90.0, self.nav_navigator),
             ],
             [
@@ -87,6 +88,7 @@ class Supplybot(Node):
             elif topic == 'enemy_detected':
                 self.course_index = 1
                 self.is_course_changed = True
+                self.get_logger().info(f"적군을 감지하였습니다.")
         
         topics = [
             f'{MY_NAMESPACE}/go_next_waypoint',
@@ -141,9 +143,9 @@ class Supplybot(Node):
             self.nav_navigator.followWaypoints(self.waypoints[self.course_index])
 
             # 5. 이동 중 피드백 확인
-            while not self.nav_navigator.isTaskComplete():
+            while not self.nav_navigator.isTaskComplete() or self.is_course_changed:
                 feedback = self.nav_navigator.getFeedback()
-                if feedback:
+                if feedback or self.is_course_changed:
                     self.get_logger().info(
                         f'현재 목적지: {self.current_index + 1}/{get_num_of_waypoints()}, '
                         f'packbot 위치: {self.packbot_current_index}/{get_num_of_waypoints()}'
@@ -189,9 +191,9 @@ class Supplybot(Node):
             self.get_logger().info(f'{result}')
 
         elif num == 5:
-            self.get_logger().info(f"7초 후에 docking")
-            time.sleep(7)
-            goal_pose = create_pose(3.266, 2.034, 0.0, self.nav_navigator)
+            self.get_logger().info(f"10초 후에 docking")
+            time.sleep(10)
+            goal_pose = create_pose(4.197, 1.4, 0.0, self.nav_navigator)
             self.nav_navigator.goToPose(goal_pose)
 
             # 4. 이동 중 피드백 표시
