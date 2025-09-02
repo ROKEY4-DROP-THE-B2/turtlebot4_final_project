@@ -128,6 +128,7 @@ class Packbot(Node):
         num = _num.data
 
         if self.is_moving:
+            self.dock_navigator.get_logger().info('이동중이라 명령을 무시합니다.')
             return
         self.is_moving = True
 
@@ -151,15 +152,19 @@ class Packbot(Node):
 
             # 좌표배열 순서대로 이동 수행 
             self.nav_navigator.followWaypoints(self.waypoints[self.course_index])
+            def show():
+                if not self.nav_navigator.isTaskComplete():
+                    self.get_logger().info(
+                        f'현재 목적지: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
+                        f'supplybot 위치: {self.supplybot_current_index}/{NUM_OF_WAYPOINTS}'
+                    )
+
+            timer = self.create_timer(1.0, show)
 
             # 5. 이동 중 피드백 확인
             while not self.nav_navigator.isTaskComplete():
                 feedback = self.nav_navigator.getFeedback()
                 if feedback:
-                    self.get_logger().info(
-                        f'현재 목적지: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
-                        f'supplybot 위치: {self.supplybot_current_index}/{NUM_OF_WAYPOINTS}'
-                    )
 
                     # 적군 감지 시 코스 변경
                     if self.is_course_changed:
@@ -168,6 +173,9 @@ class Packbot(Node):
 
                         remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
                         self.nav_navigator.followWaypoints(remaining_waypoints)
+                        self.get_logger().info(
+                            f'현재 목적지: {self.waypoints[self.course_index][self.current_index]}, '
+                        )
                         continue
 
                     # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
@@ -191,7 +199,7 @@ class Packbot(Node):
                 self.current_index += 1
                 self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
             self.get_logger().info(f'{result}')
-
+            timer.cancel()
         elif num == 5:
             goal_pose = create_pose(3.266, 2.034, 0.0, self.nav_navigator)
             self.nav_navigator.goToPose(goal_pose)
