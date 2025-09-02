@@ -114,16 +114,60 @@ class Supplybot(Node):
         if self.is_moving:
             return
         self.is_moving = True
+        is_error = False
 
         if num == 1:
             # 1번 동작 수행
-            pass
+            self.dock_navigator.get_logger().info('도킹 상태 → 언도킹')
+            self.dock_navigator.undock()
         elif num == 2:
             # 2번 동작 수행
             pass
-        elif num == 3:
-            # 3번 동작 수행
-            pass
+        elif num in (31, 32, 33, 312, 313, 323, 3123):
+            # 보금품 수령
+            init_pose = create_pose(4.19, 0.85, 270.0, self.nav_navigator)
+            waypoints = [init_pose]
+
+            supplements_locations = (
+                create_pose(3.661, -0.065, 270.0, self.nav_navigator),
+                create_pose(4.144, -0.033, 270.0, self.nav_navigator),
+                create_pose(4.722, -0.045, 270.0, self.nav_navigator),
+            )
+
+            # 보급품 위치로 이동
+            supplements = list(map(int, list(str(num))))[1:]
+            for item in supplements:
+                waypoints.append(supplements_locations[item - 1])
+            
+            # 처음 위치로 다시 이동
+            waypoints.append(init_pose)
+            num_of_waypoints = len(waypoints)
+
+            self.nav_navigator.followWaypoints(waypoints)
+            
+            current_waypoint = 0
+            while not self.nav_navigator.isTaskComplete():
+                feedback = self.nav_navigator.getFeedback()
+                if feedback:
+                    if current_waypoint < num_of_waypoints - 1 and current_waypoint != feedback.current_waypoint:
+                        current_waypoint += 1 # feedback.current_waypoint는 0 또는 1이 되므로 +1을 더해준다
+                        self.get_logger().info('보급품 수령 대기중...')
+                        self.pause()
+                        time.sleep(10)
+                        self.get_logger().info('보급품 수령 완료.')
+                        remaining_waypoints = waypoints[current_waypoint:]
+                        self.nav_navigator.followWaypoints(remaining_waypoints)
+            
+            # 5. 결과 확인
+            result = self.nav_navigator.getResult()
+            if result == TaskResult.SUCCEEDED:
+                self.nav_navigator.get_logger().info('처음 위치 복귀')
+            elif result == TaskResult.FAILED:
+                error_code, error_msg = self.nav_navigator.getTaskError()
+                self.nav_navigator.get_logger().error(f'이동 실패: {error_code} - {error_msg}')
+            else:
+                self.nav_navigator.get_logger().warn('알 수 없는 결과 코드 수신')
+            
         elif num == 4:
             # 장애물 없을 때 정상 주행
             # 4. Waypoint 경로 이동 시작
@@ -217,9 +261,10 @@ class Supplybot(Node):
             
             self.docking()
         else:
+            is_error = True
             self.get_logger().info(f'유효하지 않은 입력값')
         
-        if 1 <= num <= 5:
+        if not is_error:
             self.is_moving = False
     
     def docking(self):
