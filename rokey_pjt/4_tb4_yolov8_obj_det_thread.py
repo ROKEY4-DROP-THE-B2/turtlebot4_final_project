@@ -147,7 +147,7 @@ class YOLOTrackerNode(Node):
                         self.get_logger().info(f"cm:{distance_m :.2f}")
                         self.get_logger().info(f"conf:{conf:.2f}")
                         self.log=True
-                    
+                #
                     msg.data = distance_m
                     self.publisher_.publish(msg)
                     text = f"{label} {distance_m:.2f}m ({conf:.2f})"

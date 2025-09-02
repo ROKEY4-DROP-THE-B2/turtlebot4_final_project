@@ -110,7 +110,9 @@ class TfPointTransform(Node):
         pt = PointStamped()
         pt.header.frame_id = 'base_link'
         pt.header.stamp = Time().to_msg()
-        pt.point.x = float(msg.data)
+        if self.done_once==False:
+            pt.point.x = float(msg.data)
+            self.done_once=True
         pt.point.y = 0.0
         pt.point.z = 0.0
 
@@ -141,7 +143,7 @@ class TfPointTransform(Node):
 
     def publish_mask(self, x_m, y_m, frame_id: str):
         # 발행 제한
-        if not self.done_once:
+        if self.done_once:
             
   
         # map 기준으로 그릴 때는 /map info가 준비되어 있어야 안전
@@ -181,7 +183,7 @@ class TfPointTransform(Node):
             after = np.count_nonzero(data == 100)
             self.get_logger().info(f"blocked cells: {after - before}")
             if after- before >250:
-                self.done_once=True
+                # self.done_once=True
                 self.get_logger().info("True")
             grid.data = data.flatten().tolist()
             self.last_mask = grid
