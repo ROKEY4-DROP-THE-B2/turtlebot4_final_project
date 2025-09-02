@@ -8,7 +8,7 @@ import tf2_geometry_msgs  # 꼭 필요
 from visualization_msgs.msg import Marker
 
 NORMALIZE_DEPTH_RANGE = 3.0
-DISTANCE_INFO_TOPIC = '/robot2/distance'
+DISTANCE_INFO_TOPIC = '/robot1/distance'
 MARKER_TOPIC = 'detected_objects_marker'
 ENEMY_DETECTED = 'enemy_detected'
 
@@ -56,6 +56,9 @@ class TfPointTransform(Node):
             self.detect_enemy_publisher.publish(msg)
     
     def distance_subscription_callback(self, msg):
+        self.get_logger().info("setting")
+        self.get_logger().info(f"Distance: {msg}")
+
         distance = msg.data
         try:
             # base_link 기준 포인트 생성

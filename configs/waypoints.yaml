@@ -1,17 +1,17 @@
 waypoints:
-  - name: "supplies_1"
+  - name: "supplies_1_1"
     frame_id: map
     pose:
       position: {x: 3.661709785461426, y: -0.06583523750305176, z: 0.0}
       orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
 
-  - name: "supplies_2"
+  - name: "supplies_1_2"
     frame_id: map
     pose:
       position: {x: 4.144245147705078, y: -0.03397253900766373, z: 0.0}
       orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
 
-  - name: "supplies_3"
+  - name: "supplies_1_3"
     frame_id: map
     pose:
       position: {x: 4.722928047180176, y: -0.045948974788188934, z: 0.0}
