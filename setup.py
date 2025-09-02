@@ -33,6 +33,7 @@ setup(
             'supplybot_cc=rokey_pjt.supplybot_command_center:main',
             'tf_1m=rokey_pjt.tf_1m:main',
             'tf_real=rokey_pjt.tf_1m_ver2:main',
+            'check_info=rokey_pjt.chek_info_topic:main'
         ],
     },
 )

@@ -171,16 +171,21 @@ class TfPointTransform(Node):
                 f"mask ROI: world=({x_m:.2f},{y_m:.2f}), grid=({cx},{cy}), size=({self.width},{self.height}), r={r}"
             )
 
+            w_m = getattr(self, 'rect_w_m', 0.4)   # X방향(가로, 짧은 변)
+            h_m = getattr(self, 'rect_h_m', 1.2)   # Y방향(세로, 긴 변)
+
+            # 셀 단위 절반폭 계산
+            hw = max(1, int(round((w_m/2) / self.resolution)))
+            hh = max(1, int(round((h_m/2) / self.resolution)))
+
+            # 경계 보정(+1은 파이썬 슬라이싱 상단 포함 위해)
+            x0 = max(0, cx - hw); x1 = min(self.width  - 1, cx + hw)
+            y0 = max(0, cy - hh); y1 = min(self.height - 1, cy + hh)
+
             before = np.count_nonzero(data == 100)
-            x0 = max(0, cx - r); x1 = min(self.width,  cx + r + 1)
-            y0 = max(0, cy - r); y1 = min(self.height, cy + r + 1)
-            for ix in range(x0, x1):
-                dx2 = (ix - cx) * (ix - cx)
-                for iy in range(y0, y1):
-                    dy = iy - cy
-                    if dx2 + dy*dy <= r*r:
-                        data[iy, ix] = 100
-            after = np.count_nonzero(data == 100)
+            data[y0:y1+1, x0:x1+1] = 100
+            after  = np.count_nonzero(data == 100)
+            
             self.get_logger().info(f"blocked cells: {after - before}")
             if after- before >250:
                 # self.done_once=True

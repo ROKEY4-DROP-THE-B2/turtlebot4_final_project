@@ -53,17 +53,20 @@ class ClickedPointToKeepout(Node):
         # 초기값 0 (모두 free)
         data = np.zeros((self.height, self.width), dtype=np.int8)
 
-        # 클릭 좌표 → grid index 변환
-        gx = int((msg.point.x - self.origin_x) / self.resolution)
-        gy = int((msg.point.y - self.origin_y) / self.resolution)
+        w_m = getattr(self, 'rect_w_m', 0.4)   # X방향(가로, 짧은 변)
+        h_m = getattr(self, 'rect_h_m', 1.2)   # Y방향(세로, 긴 변)
 
-        radius = int(0.5/self.resolution)  # 반경 0.5m keepout
-        for y in range(max(0, gy - radius), min(self.height, gy + radius)):
-            for x in range(max(0, gx - radius), min(self.width, gx + radius)):
-                dx, dy = x - gx, y - gy
-                if math.sqrt(dx*dx + dy*dy) <= radius:
-                    data[y, x] = 100  # 100=차단
+        # (추천) 셀 중심으로 스냅 → 모서리 오차/스침 감소
+        gx = int(round((msg.point.x - self.origin_x) / self.resolution))
+        gy = int(round((msg.point.y - self.origin_y) / self.resolution))
 
+        hw = max(1, int(round((w_m/2) / self.resolution)))
+        hh = max(1, int(round((h_m/2) / self.resolution)))
+
+        x0 = max(0, gx - hw); x1 = min(self.width  - 1, gx + hw)
+        y0 = max(0, gy - hh); y1 = min(self.height - 1, gy + hh)
+
+        data[y0:y1+1, x0:x1+1] = 100  # 100 = keepout
         grid.data = data.flatten().tolist()
 
         # 퍼블리시
