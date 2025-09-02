@@ -9,7 +9,6 @@ from tf_transformations import quaternion_from_euler
 import time, threading
 from .mqtt_controller import MqttController
 
-NUM_OF_WAYPOINTS = 5
 MY_NAMESPACE = '/robot1'
 OTHER_NAMESPACE = '/robot2'
 
@@ -64,9 +63,9 @@ class Supplybot(Node):
             ],
             [
                 create_pose(4.638, 1.465, 0.0, self.nav_navigator),
-                create_pose(3.266, 2.034, 90.0, self.nav_navigator),
-                create_pose(2.32, 0.39, 180.0, self.nav_navigator),
-                create_pose(0.46, 0.46, -90.0, self.nav_navigator),
+                create_pose(3.266, 2.034, -90.0, self.nav_navigator),
+                create_pose(2.32, 0.39, 0.0, self.nav_navigator),
+                create_pose(0.46, 0.46, 90.0, self.nav_navigator),
                 create_pose(0.414, 3.101, 90.0, self.nav_navigator),
             ],
         ]
@@ -82,7 +81,7 @@ class Supplybot(Node):
         def on_message(client, userdata, msg):
             data = msg.payload.decode()
             topic = msg.topic
-            if topic == f'{MY_NAMESPACE}/go_next_waypoint':
+            if topic == f'{MY_NAMESPACE}/go_next_waypoint' and self.is_moving:
                 self.packbot_current_index = int(data)
                 self.get_logger().info(f"변경됨 self.packbot_current_index={self.packbot_current_index}")
             elif topic == 'enemy_detected':
@@ -131,6 +130,9 @@ class Supplybot(Node):
             self.course_index = 0
             self.is_course_changed = False
 
+            def get_num_of_waypoints():
+                return len(self.waypoints[self.course_index])
+
             # 정찰로봇이 2번 위치에 갈때 까지 대기
             while self.packbot_current_index == 0:
                 pass
@@ -143,17 +145,18 @@ class Supplybot(Node):
                 feedback = self.nav_navigator.getFeedback()
                 if feedback:
                     self.get_logger().info(
-                        f'현재 목적지: {self.current_index + 1}/{NUM_OF_WAYPOINTS}, '
-                        f'packbot 위치: {self.packbot_current_index}/{NUM_OF_WAYPOINTS}'
+                        f'현재 목적지: {self.current_index + 1}/{get_num_of_waypoints()}, '
+                        f'packbot 위치: {self.packbot_current_index}/{get_num_of_waypoints()}'
                     )
 
                     # 적군 감지 시 코스 변경
                     if self.is_course_changed:
                         self.is_course_changed = False
                         old_packbot_current_index = self.packbot_current_index
-                        self.get_logger().info('적군 감지해서 대기함')
                         self.pause()
                         while old_packbot_current_index == self.packbot_current_index or self.packbot_current_index == 0:
+                            self.get_logger().info('적군 감지해서 대기중...')
+                            time.sleep(1)
                             pass
 
                         self.get_logger().info(f'정찰로봇이 코스 변경후 {self.packbot_current_index}지점에 도착하여 다시 주행함')
@@ -166,17 +169,18 @@ class Supplybot(Node):
                     if feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 정찰로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
-                        if self.current_index < 4:
+                        if self.current_index < get_num_of_waypoints() - 1:
                             self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.supplybot_current_index())
                             # 대기 명령 내림
                             self.pause()
-                            while self.supplybot_current_index() != self.packbot_current_index - 2 or self.is_course_changed:
-                                pass
+                            while not self.is_course_changed and self.supplybot_current_index() != self.packbot_current_index - 2:
+                                self.get_logger().info(f'Paused.')
+                                time.sleep(1)
                         
                         if self.is_course_changed:
                             continue
                             
-                        if self.current_index < NUM_OF_WAYPOINTS:
+                        if self.current_index < get_num_of_waypoints():
                             remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
                             self.nav_navigator.followWaypoints(remaining_waypoints)
 
@@ -185,6 +189,8 @@ class Supplybot(Node):
             self.get_logger().info(f'{result}')
 
         elif num == 5:
+            self.get_logger().info(f"7초 후에 docking")
+            time.sleep(7)
             goal_pose = create_pose(3.266, 2.034, 0.0, self.nav_navigator)
             self.nav_navigator.goToPose(goal_pose)
 
