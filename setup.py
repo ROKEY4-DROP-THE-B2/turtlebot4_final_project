@@ -27,6 +27,7 @@ setup(
             'supplybot=rokey_pjt.supplybot:main',
             'packbot_cc=rokey_pjt.packbot_command_center:main',
             'supplybot_cc=rokey_pjt.supplybot_command_center:main',
+            'supplybot_test=rokey_pjt.supplybot_test:main',
         ],
     },
 )
