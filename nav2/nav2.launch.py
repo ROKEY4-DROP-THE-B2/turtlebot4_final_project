@@ -65,7 +65,7 @@ def launch_setup(context, *args, **kwargs):
         PushRosNamespace(namespace),
         SetRemap(namespace_str + '/global_costmap/scan', namespace_str + '/scan'),
         SetRemap(namespace_str + '/local_costmap/scan', namespace_str + '/scan'),
-        
+      #시작  
         Node(
             package='nav2_map_server',
             executable='costmap_filter_info_server',
@@ -74,7 +74,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[{
                 'type': 0,                              # 0 = KEEP_OUT
                 'mask_topic': f'{namespace_str}/explosive_keepout_mask',  # 퍼블리시할 OccupancyGrid 토픽
-                'filter_info_topic': f'{namespace_str}/keepout_filter_info',
+                # 'filter_info_topic': f'{namespace_str}/keepout_filter_info',
                 'base': 0.0,
                 'multiplier': 1.0
             }]
