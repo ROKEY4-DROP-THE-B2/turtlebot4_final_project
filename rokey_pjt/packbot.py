@@ -133,7 +133,8 @@ class Packbot(Node):
 
         if num == 1:
             # 1번 동작 수행
-            pass
+            self.dock_navigator.get_logger().info('도킹 상태 → 언도킹')
+            self.dock_navigator.undock()
         elif num == 2:
             # 2번 동작 수행
             pass
