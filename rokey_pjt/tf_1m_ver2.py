@@ -10,10 +10,10 @@ from rclpy.duration import Duration
 from rclpy.time import Time
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 import numpy as np
-
+from nav2_msgs.msg import CostmapFilterInfo 
 DISTANCE_INFO_TOPIC = '/robot1/distance'
 MASK_TOPIC = '/robot1/explosive_keepout_mask'
-
+INFO_TOPIC = '/robot1/keepout_filter_info' 
 class TfPointTransform(Node):
     def __init__(self):
         super().__init__('tf_point_transform')
@@ -31,6 +31,14 @@ class TfPointTransform(Node):
         self.max_publish   = 500000
         self.map_info_synced = False
         self.done_once = False
+        
+        # ★ 재발행 엔진 상태(A/B 공용)
+        self.last_mask = None
+        self._prev_subs = 0
+        self._cooldown = False
+        self._burst_timer = None
+        self._burst_remaining = 0
+
         # /map 구독 (라칭 QoS)
         map_qos = QoSProfile(
             depth=1,
@@ -51,7 +59,12 @@ class TfPointTransform(Node):
         self.mask_pub = self.create_publisher(OccupancyGrid, MASK_TOPIC, latched_qos)
 
         # 거리 구독(메시지 콜백은 'distance_callback'로 별도)
-        
+        # ★ 트리거 A: 새 구독자 증가 감지(0.5s 폴링)
+        self.create_timer(0.5, self._on_subscriber_change)
+
+        # ★ 트리거 B: 필터 준비 신호 수신 시 짧은 버스트
+        self.create_subscription(CostmapFilterInfo, INFO_TOPIC, self._on_info, 10)
+
 
         # 초기값 (곧 /map으로 덮임)
         self.resolution = 0.05
@@ -61,7 +74,7 @@ class TfPointTransform(Node):
         self.origin_y = -0.458
 
         # 주기 타이머 (인자 없는 콜백)
-        self.get_logger().info("TF Tree 안정화 시작. 50초 후 변환 시작합니다.")
+        self.get_logger().info("TF Tree 안정화 시작. 5초 후 변환 시작합니다.")
         self.start_timer = self.create_timer(5.0, self.start_transform)
 
     # ---------- 콜백들 ----------
@@ -128,7 +141,7 @@ class TfPointTransform(Node):
 
     def publish_mask(self, x_m, y_m, frame_id: str):
         # 발행 제한
-        if self.done_once==False:
+        if not self.done_once:
             
   
         # map 기준으로 그릴 때는 /map info가 준비되어 있어야 안전
@@ -150,7 +163,7 @@ class TfPointTransform(Node):
 
             cx = int((x_m - self.origin_x) / self.resolution)
             cy = int((y_m - self.origin_y) / self.resolution)
-            r  = int(0.8 / self.resolution)  # 0.5 m
+            r  = int(0.8/ self.resolution)  # 0.5 m
 
             self.get_logger().info(
                 f"mask ROI: world=({x_m:.2f},{y_m:.2f}), grid=({cx},{cy}), size=({self.width},{self.height}), r={r}"
@@ -171,10 +184,53 @@ class TfPointTransform(Node):
                 self.done_once=True
                 self.get_logger().info("True")
             grid.data = data.flatten().tolist()
+            self.last_mask = grid
             self.mask_pub.publish(grid)
             
             self.get_logger().info(f"Keepout mask 퍼블리시 완료! ({self.publish_count}/{self.max_publish})")
+                   # ★ 이미 생성된 후 들어오는 호출은 fresh 생성 스킵(재발행은 별도 트리거가 처리)
+        else:    
+            self.get_logger().debug("fresh 생성 차단(이미 생성됨); 필요 시 트리거로 재발행만 수행")
+    
+    def _on_subscriber_change(self):  # ★ A안
+        self.get_logger().debug("Pub A")
+        n = self.mask_pub.get_subscription_count()
+        if n > self._prev_subs and self.last_mask is not None:
+            self._trigger_republish(burst=1)  # 새 구독자 붙는 상승엣지에서 1회만
+        self._prev_subs = n
 
+    def _on_info(self, msg: CostmapFilterInfo):  # ★ B안(개선)
+        self.get_logger().debug("Pub B")
+        if self.last_mask is None:
+            return
+        # Nav2에서 Keepout type = 0
+        try:
+            filter_type = int(msg.type)
+        except Exception:
+            filter_type = -1
+        if filter_type == 0:
+            self._trigger_republish(burst=3)  # 필터 준비 신호 시 3회 버스트
+    def _trigger_republish(self, burst: int, period: float = 0.4):  # ★ 공용 엔진
+        if self._cooldown:
+            # 디바운스 중이면 버스트 횟수만 상향
+            self._burst_remaining = max(self._burst_remaining, burst)
+            return
+
+        self._burst_remaining = max(self._burst_remaining, burst)
+        if self._burst_timer is None:
+            self._burst_timer = self.create_timer(period, self._burst_tick)
+
+        self._cooldown = True
+        self.create_timer(2.0, lambda: setattr(self, "_cooldown", False))  # 2s 디바운스
+
+    def _burst_tick(self):  # ★ 공용 엔진
+        if self._burst_remaining > 0 and self.last_mask is not None:
+            self.mask_pub.publish(self.last_mask)
+            self._burst_remaining -= 1
+        else:
+            if self._burst_timer is not None:
+                self._burst_timer.cancel()
+                self._burst_timer = None
 def main():
     rclpy.init()
     node = TfPointTransform()

@@ -57,7 +57,7 @@ class ClickedPointToKeepout(Node):
         gx = int((msg.point.x - self.origin_x) / self.resolution)
         gy = int((msg.point.y - self.origin_y) / self.resolution)
 
-        radius = int(1 / self.resolution)  # 반경 0.5m keepout
+        radius = int(0.5/self.resolution)  # 반경 0.5m keepout
         for y in range(max(0, gy - radius), min(self.height, gy + radius)):
             for x in range(max(0, gx - radius), min(self.width, gx + radius)):
                 dx, dy = x - gx, y - gy

@@ -102,7 +102,7 @@ class YOLOTrackerNode(Node):
                 frame = self.rgb_image_queue.get(timeout=0.1)
             except queue.Empty:
                 continue
-            results = self.model.track(source=frame, persist=True, stream=True,conf=0.6, verbose=False)
+            results = self.model.track(source=frame, persist=True, stream=True,conf=0.8, verbose=False)
             with self.data_lock:
                 depth_vis_frame = self.latest_depth_vis_frame
                 raw_depth_frame = self.latest_raw_depth_frame
@@ -114,10 +114,10 @@ class YOLOTrackerNode(Node):
                 self.draw_yolo_results(display_depth_bgr, results, raw_depth_frame)
 
                 # final_image = np.hstack((frame, display_depth_colored))
-                # cv2.imshow(self.window_name, frame)
+                cv2.imshow(self.window_name, frame)
             else:
                 self.draw_yolo_results(frame, results, depth_frame=None)
-                # cv2.imshow(self.window_name, frame)
+                cv2.imshow(self.window_name, frame)
             key = cv2.waitKey(1)
             if key == ord('q'):
                 self.should_shutdown = True
