@@ -35,8 +35,8 @@ def find_closest_point_index(point, array):
 
     x1, y1 = point
 
-    for index, point_B in enumerate(array):
-        x2, y2 = point_B
+    for index, pose in enumerate(array):
+        x2, y2 = pose.pose.position.x, pose.pose.position.y
 
         # 유클리드 거리 계산
         distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
