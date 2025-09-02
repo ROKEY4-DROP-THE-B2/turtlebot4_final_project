@@ -8,6 +8,14 @@ from rclpy.executors import MultiThreadedExecutor
 MY_NAMESPACE = '/robot2'
 OTHER_NAMESPACE = '/robot1'
 
+COMMAND = {
+    1: '언도킹',
+    2: 'UNKNOWN',
+    3: '보급품 수령',
+    4: '보급품 운반',
+    5: '도킹',
+}
+
 class PackbotCommandCenter(Node):
     def __init__(self):
         super().__init__('packbot_command_center')
@@ -42,6 +50,14 @@ def main(args=None):
     try:
         while rclpy.ok():
             n = int(input('명령을 입력하세요: '))
+            for k, v in COMMAND.items():
+                node.get_logger().info(f"{k}: {v}")
+            if n == 3:
+                node.get_logger().info('요청할 보급품을 입력하세요.(1: 피복, 2: 탄약, 3: 식량): ')
+                node.get_logger().info('2개 이상을 요청할 경우 ,로 구분해 주세요(ex: 1,3)')
+                menu = ''.join(input().split(','))
+                n = int(str(n) + menu)
+                node.get_logger().info('보급품을 요청하였습니다.')
             node.publish(n)
             node.publish_to_mqtt(n)
     except KeyboardInterrupt:
