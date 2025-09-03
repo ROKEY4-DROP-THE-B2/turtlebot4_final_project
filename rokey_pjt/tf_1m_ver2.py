@@ -204,14 +204,26 @@ class TfPointTransform(Node):
         cx = int((x_m - self.origin_x) / self.resolution)
         cy = int((y_m - self.origin_y) / self.resolution)
 
-        w_m = getattr(self, 'rect_w_m', 0.1)
-        h_m = getattr(self, 'rect_h_m', 1.6)
-        hw = max(1, int(round((w_m/2) / self.resolution)))
-        hh = max(1, int(round((h_m/2) / self.resolution)))
+        w_m = getattr(self, 'rect_w_m', 0.1)   # 가로 총 길이(대칭)
+        h_m = getattr(self, 'rect_h_m', 1.6)   # 세로 총 길이(비대칭으로 분할)
 
-        x0 = max(0, cx - hw); x1 = min(self.width  - 1, cx + hw)
-        y0 = max(0, cy - hh); y1 = min(self.height - 1, cy + hh)
-        data[y0:y1+1, x0:x1+1] = 100
+        # --- Y만 비대칭 ---
+        # 방법 A) 비율로 분할 (기본: 위쪽 75%, 아래쪽 25%)
+        up_ratio = float(getattr(self, 'rect_up_ratio', 0.75))  # 0<up_ratio<1
+        up_ratio = min(0.95, max(0.05, up_ratio))
+        up_m   = h_m * up_ratio
+        down_m = h_m - up_m
+
+        # --- 셀로 변환 ---
+        half_w = max(1, int(round((w_m/2) / self.resolution)))  # X는 대칭
+        uy = max(1, int(round( up_m   / self.resolution)))      # +Y(위쪽)
+        dy = max(1, int(round( down_m / self.resolution)))      # -Y(아래쪽)
+
+        # --- 경계 보정 후 채우기 ---
+        x0 = max(0, cx - half_w); x1 = min(self.width  - 1, cx + half_w)
+        y0 = max(0, cy - dy);     y1 = min(self.height - 1, cy + uy)
+        if x0 <= x1 and y0 <= y1:
+            data[y0:y1+1, x0:x1+1] = 100
 
         # 변경 감지: 이전 마스크와 다를 때만 발행
         if self.publish_on_change and self._last_np is not None:
