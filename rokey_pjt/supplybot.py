@@ -126,7 +126,7 @@ class Supplybot(Node):
         elif num in (31, 32, 33, 312, 313, 323, 3123):
             # 보금품 수령
             init_pose = create_pose(4.19, 0.85, 270.0, self.nav_navigator)
-            waypoints = [init_pose]
+            waypoints = []
 
             supplements_locations = (
                 create_pose(3.661, -0.065, 270.0, self.nav_navigator),
@@ -151,7 +151,7 @@ class Supplybot(Node):
                 if feedback and feedback.current_waypoint > 0:
                     current_waypoint += 1 # feedback.current_waypoint는 0 ~ 2가 되므로 +1을 더해준다
 
-                    if 1 < current_waypoint < num_of_waypoints - 1:
+                    if 1 <= current_waypoint <= num_of_waypoints - 1:
                         self.get_logger().info('보급품 수령 대기중...')
                         self.pause()
                         time.sleep(10)
