@@ -2,7 +2,7 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Float32
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Vector3
 import tf2_ros
 import tf2_geometry_msgs
 from nav_msgs.msg import OccupancyGrid, MapMetaData
@@ -11,9 +11,10 @@ from rclpy.time import Time
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
 import numpy as np
 from nav2_msgs.msg import CostmapFilterInfo 
-DISTANCE_INFO_TOPIC = '/robot1/distance'
-MASK_TOPIC = '/robot1/explosive_keepout_mask'
-INFO_TOPIC = '/robot1/keepout_filter_info' 
+DISTANCE_INFO_TOPIC = '/robot2/distance'
+MASK_TOPIC = '/robot2/explosive_keepout_mask'
+INFO_TOPIC = '/robot2/keepout_filter_info' 
+ENEMY_DETECTED = 'enemy_detected'
 class TfPointTransform(Node):
     def __init__(self):
         super().__init__('tf_point_transform')
@@ -47,7 +48,7 @@ class TfPointTransform(Node):
             history=HistoryPolicy.KEEP_LAST
         )
         # 절대 경로라면 앞에 / 필요
-        self.map_sub = self.create_subscription(OccupancyGrid, '/robot1/map', self.map_cb, map_qos)
+        self.map_sub = self.create_subscription(OccupancyGrid, '/robot2/map', self.map_cb, map_qos)
 
         # keepout 퍼블리셔 (라칭)
         latched_qos = QoSProfile(
@@ -57,6 +58,7 @@ class TfPointTransform(Node):
             history=HistoryPolicy.KEEP_LAST
         )
         self.mask_pub = self.create_publisher(OccupancyGrid, MASK_TOPIC, latched_qos)
+        self.detect_enemy_publisher = self.create_publisher(Vector3, ENEMY_DETECTED, 10)
 
         # 거리 구독(메시지 콜백은 'distance_callback'로 별도)
         # ★ 트리거 A: 새 구독자 증가 감지(0.5s 폴링)
@@ -98,21 +100,17 @@ class TfPointTransform(Node):
     def start_transform(self):
         self.get_logger().info("TF Tree 안정화 완료. 변환 시작합니다.")
         # 2초마다 "앞으로 1m"를 변환 테스트 (옵션)
-        self.distance_subscription = self.create_subscription(
+        self.create_subscription(
             Float32, DISTANCE_INFO_TOPIC, self.distance_callback, 10
         )
         self.start_timer.cancel()
-
-   
 
     def distance_callback(self, msg: Float32):
         # 거리값(전방 x)을 base_link->target_frame으로 변환
         pt = PointStamped()
         pt.header.frame_id = 'base_link'
         pt.header.stamp = Time().to_msg()
-        if self.done_once==False:
-            pt.point.x = float(msg.data)
-            self.done_once=True
+        pt.point.x = float(msg.data)
         pt.point.y = 0.0
         pt.point.z = 0.0
 
@@ -121,6 +119,7 @@ class TfPointTransform(Node):
             return
         self.get_logger().info(f"[{p.header.frame_id}] ({p.point.x:.2f}, {p.point.y:.2f}, {p.point.z:.2f})")
         self.publish_mask(p.point.x, p.point.y, frame_id=p.header.frame_id)
+        self.publish_enemy_detected()
 
     # ---------- 유틸 ----------
     def _transform_point(self, pt: PointStamped, target_frame: str):
@@ -143,7 +142,7 @@ class TfPointTransform(Node):
 
     def publish_mask(self, x_m, y_m, frame_id: str):
         # 발행 제한
-        if self.done_once:
+        if True:
             
   
         # map 기준으로 그릴 때는 /map info가 준비되어 있어야 안전
@@ -233,6 +232,31 @@ class TfPointTransform(Node):
             if self._burst_timer is not None:
                 self._burst_timer.cancel()
                 self._burst_timer = None
+
+    def publish_enemy_detected(self):
+        position = self.get_current_position()
+        if position is not None:
+            msg = Vector3()
+            msg.x = position.x
+            msg.y = position.y
+            msg.z = position.z
+            self.detect_enemy_publisher.publish(msg)
+    
+    def get_current_position(self):
+        try:
+            # 'map' 프레임에 대한 'base_link'의 변환을 가져옴
+            transform = self.tf_buffer.lookup_transform(
+                'map',
+                'base_link',
+                rclpy.time.Time()
+            )
+
+            position = transform.transform.translation
+            return position
+        except Exception as e:
+            self.get_logger().error(f"Failed to get current_location: {e}")
+            return None
+
 def main():
     rclpy.init()
     node = TfPointTransform()

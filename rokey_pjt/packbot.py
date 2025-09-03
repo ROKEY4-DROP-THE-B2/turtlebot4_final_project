@@ -145,6 +145,7 @@ class Packbot(Node):
         elif num == 4:
             # 장애물 없을 때 정상 주행
             # 4. Waypoint 경로 이동 시작
+            self.dock_navigator.get_logger().info('보급풉 운반을 위한 정찰 시작')
             self.current_index = 0
             self.supplybot_current_index = -1
             self.course_index = 0
@@ -182,12 +183,12 @@ class Packbot(Node):
                     if feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
-                        self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
-                        # 대기 명령 내림
-                        self.pause()
+                        # self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
+                        # # 대기 명령 내림
+                        # self.pause()
                         
-                        while self.current_index != self.supplybot_current_index + 1:
-                            pass
+                        # while self.current_index != self.supplybot_current_index + 1:
+                        #     pass
                         
                         if self.current_index < NUM_OF_WAYPOINTS:
                             remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
@@ -233,10 +234,10 @@ class Packbot(Node):
     def change_waypoint(self, msg: Vector3):
         if self.is_moving and self.course_index == 0:
             x, y = msg.x, msg.y
-            self.course_index = 1
-            self.current_index = max(0, find_closest_point_index((x, y), self.waypoints[self.course_index]) - 1)
-            self.is_course_changed = True
-            self.mqttController.publish(f'enemy_detected', self.current_index)
+            # self.course_index = 1
+            # self.current_index = max(0, find_closest_point_index((x, y), self.waypoints[self.course_index]) - 1)
+            # self.is_course_changed = True
+            # self.mqttController.publish(f'enemy_detected', self.current_index)
 
             self.get_logger().info(f"현재 위치 index = {self.current_index}")
             self.get_logger().info(f"적군을 감지하여 {self.course_index + 1}번 경로로 탐색합니다.")

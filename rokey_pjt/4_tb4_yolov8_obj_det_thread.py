@@ -7,7 +7,6 @@ import cv2
 import math
 import os
 import sys
-import torch
 import threading
 import queue
 import numpy as np
@@ -16,12 +15,11 @@ from collections import deque
 # ========================
 # 상수 정의
 # ========================
-
-MODEL_PATH = '/home/rokey/rokey_ws/model/best_MOH50_polyfit_v11_ver4.pt'
-RGB_IMAGE_TOPIC = '/robot1/oakd/rgb/preview/image_raw'
-DEPTH_IMAGE_TOPIC = '/robot1/oakd/stereo/image_raw'
-CAMERA_INFO_TOPIC = '/robot1/oakd/stereo/camera_info'
-DISTANCE_INFO_TOPIC = '/robot1/distance'
+MODEL_PATH = '/home/rokey/rokey_ws/src/rokey_pjt/model/best.pt'
+RGB_IMAGE_TOPIC = '/robot2/oakd/rgb/preview/image_raw'
+DEPTH_IMAGE_TOPIC = '/robot2/oakd/stereo/image_raw'
+CAMERA_INFO_TOPIC = '/robot2/oakd/stereo/camera_info'
+DISTANCE_INFO_TOPIC = '/robot2/distance'
 TARGET_CLASS_ID = 0
 NORMALIZE_DEPTH_RANGE = 3.0
 # ========================
@@ -39,7 +37,6 @@ class YOLOTrackerNode(Node):
         self.should_shutdown = False
         self.window_name = "YOLO & Depth"
         # 데이터 공유를 위한 멤버 변수 및 Lock
-        
         self.rgb_image_queue = queue.Queue(maxsize=1)
         self.latest_depth_vis_frame = None
         self.latest_raw_depth_frame = None
@@ -63,8 +60,6 @@ class YOLOTrackerNode(Node):
         self.worker_thread = threading.Thread(target=self.visualization_loop)
         self.worker_thread.daemon = True
         self.worker_thread.start()
-        #메시지 출력 제한 
-        self.log=False
     def rgb_image_callback(self, msg):
         try:
             frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -106,7 +101,7 @@ class YOLOTrackerNode(Node):
                 frame = self.rgb_image_queue.get(timeout=0.1)
             except queue.Empty:
                 continue
-            results = self.model.track(source=frame, persist=True, stream=True,conf=0.8, verbose=False)
+            results = self.model.track(source=frame, persist=True, stream=True, verbose=False)
             with self.data_lock:
                 depth_vis_frame = self.latest_depth_vis_frame
                 raw_depth_frame = self.latest_raw_depth_frame
@@ -114,20 +109,22 @@ class YOLOTrackerNode(Node):
                 self.draw_yolo_results(frame, results, raw_depth_frame)
                 display_depth = depth_vis_frame.copy()
                 display_depth_bgr = cv2.cvtColor(display_depth, cv2.COLOR_GRAY2BGR)
-                # display_depth_colored = cv2.applyColorMap(depth_vis_frame, cv2.COLORMAP_JET)
+                display_depth_colored = cv2.applyColorMap(depth_vis_frame, cv2.COLORMAP_JET)
                 self.draw_yolo_results(display_depth_bgr, results, raw_depth_frame)
-
-                # final_image = np.hstack((frame, display_depth_colored))
-                cv2.imshow(self.window_name, frame)
+                # if frame.shape[1] != display_depth_bgr.shape[1]:
+                #     self.get_logger().info("Resizing")
+                #     display_depth_bgr = cv2.resize(display_depth_bgr, (frame.shape[1], frame.shape[0]))
+                # final_image = np.hstack((frame, display_depth_bgr))
+                final_image = np.hstack((frame, display_depth_colored))
+                cv2.imshow(self.window_name, final_image)
             else:
                 self.draw_yolo_results(frame, results, depth_frame=None)
                 cv2.imshow(self.window_name, frame)
             key = cv2.waitKey(1)
             if key == ord('q'):
                 self.should_shutdown = True
-                #self.get_logger().info("Q pressed. Shutting down...")
+                self.get_logger().info("Q pressed. Shutting down...")
                 break
-    
     def draw_yolo_results(self, img, results, depth_frame=None):
         object_count = 0
         for r in results:

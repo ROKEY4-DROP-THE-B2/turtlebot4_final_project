@@ -35,6 +35,7 @@ class PackbotCommandCenter(Node):
     def publish(self, n):
         msg = Int16()
         msg.data = int(n)
+        self.get_logger().info(f'data={msg.data}')
         self._publishers.publish(msg)
     
     def publish_to_mqtt(self, msg):
@@ -49,9 +50,9 @@ def main(args=None):
 
     try:
         while rclpy.ok():
-            n = int(input('명령을 입력하세요: '))
             for k, v in COMMAND.items():
                 node.get_logger().info(f"{k}: {v}")
+            n = int(input('명령을 입력하세요: '))
             if n == 3:
                 node.get_logger().info('요청할 보급품을 입력하세요.(1: 피복, 2: 탄약, 3: 식량): ')
                 node.get_logger().info('2개 이상을 요청할 경우 ,로 구분해 주세요(ex: 1,3)')
