@@ -53,8 +53,8 @@ class ClickedPointToKeepout(Node):
         # 초기값 0 (모두 free)
         data = np.zeros((self.height, self.width), dtype=np.int8)
 
-        w_m = getattr(self, 'rect_w_m', 0.4)   # X방향(가로, 짧은 변)
-        h_m = getattr(self, 'rect_h_m', 1.2)   # Y방향(세로, 긴 변)
+        w_m = getattr(self, 'rect_w_m', 0.1)   # X방향(가로, 짧은 변)
+        h_m = getattr(self, 'rect_h_m', 1.5)   # Y방향(세로, 긴 변)
 
         # (추천) 셀 중심으로 스냅 → 모서리 오차/스침 감소
         gx = int(round((msg.point.x - self.origin_x) / self.resolution))

@@ -4,16 +4,18 @@ from rclpy.node import Node
 from std_msgs.msg import Float32
 from geometry_msgs.msg import PointStamped
 import tf2_ros
+from rcl_interfaces.msg import SetParametersResult
+
 import tf2_geometry_msgs
 from nav_msgs.msg import OccupancyGrid, MapMetaData
 from rclpy.duration import Duration
 from rclpy.time import Time
 from rclpy.qos import QoSProfile, ReliabilityPolicy, DurabilityPolicy, HistoryPolicy
-import numpy as np
+import numpy as np 
 from nav2_msgs.msg import CostmapFilterInfo 
 DISTANCE_INFO_TOPIC = '/robot1/distance'
 MASK_TOPIC = '/robot1/explosive_keepout_mask'
-INFO_TOPIC = '/robot1/keepout_filter_info' 
+INFO_TOPIC = '/robot1/keepout_costmap_filter_info' 
 class TfPointTransform(Node):
     def __init__(self):
         super().__init__('tf_point_transform')
@@ -38,7 +40,13 @@ class TfPointTransform(Node):
         self._cooldown = False
         self._burst_timer = None
         self._burst_remaining = 0
+        self.declare_parameter('hb_period_sec', 3.0)        # 하트비트 주기(초)
+        self.declare_parameter('publish_on_change', True)   # 변경될 때만 발행
+        self.declare_parameter('min_changed_cells', 10)     # 최소 변경 셀 수
 
+        self.hb_period_sec     = float(self.get_parameter('hb_period_sec').value)
+        self.publish_on_change = bool(self.get_parameter('publish_on_change').value)
+        self.min_changed_cells = int(self.get_parameter('min_changed_cells').value)
         # /map 구독 (라칭 QoS)
         map_qos = QoSProfile(
             depth=1,
@@ -57,13 +65,23 @@ class TfPointTransform(Node):
             history=HistoryPolicy.KEEP_LAST
         )
         self.mask_pub = self.create_publisher(OccupancyGrid, MASK_TOPIC, latched_qos)
+        self.hb_timer = self.create_timer(self.hb_period_sec, self._heartbeat)
+        self.add_on_set_parameters_callback(self._on_set_params)
+        self._last_np = None
 
         # 거리 구독(메시지 콜백은 'distance_callback'로 별도)
-        # ★ 트리거 A: 새 구독자 증가 감지(0.5s 폴링)
-        self.create_timer(0.5, self._on_subscriber_change)
 
-        # ★ 트리거 B: 필터 준비 신호 수신 시 짧은 버스트
-        self.create_subscription(CostmapFilterInfo, INFO_TOPIC, self._on_info, 10)
+        
+
+        # info_qos = QoSProfile(
+        #     depth=1,
+        #     reliability=ReliabilityPolicy.RELIABLE,
+        #     durability=DurabilityPolicy.TRANSIENT_LOCAL,     # ★ TL (래치 수신)
+        #     history=HistoryPolicy.KEEP_LAST
+        # )
+        # # self.create_subscription(CostmapFilterInfo, INFO_TOPIC, self._on_info, info_qos)
+      
+        
 
 
         # 초기값 (곧 /map으로 덮임)
@@ -86,6 +104,7 @@ class TfPointTransform(Node):
         self.origin_x   = info.origin.position.x
         self.origin_y   = info.origin.position.y
         self.map_info_synced = True
+        self._publish_empty_mask_once()
         self.get_logger().info("Keepout mask info synced to /map")
         self.get_logger().info(f"resolution: {self.resolution}")
         self.get_logger().info(f"width: {self.width}")
@@ -94,7 +113,27 @@ class TfPointTransform(Node):
         self.get_logger().info(f"origin_y: {self.origin_y}")
         self.get_logger().info("Keepout mask info synced to /map")
         self.destroy_subscription(self.map_sub)
-
+    def _publish_empty_mask_once(self):
+        if self.last_mask is not None:
+            return
+        grid = OccupancyGrid()
+        grid.header.stamp = self.get_clock().now().to_msg()
+        grid.header.frame_id = 'map'  # ★ 고정 권장
+        info = MapMetaData()
+        info.resolution = self.resolution
+        info.width      = self.width
+        info.height     = self.height
+        info.origin.position.x = self.origin_x
+        info.origin.position.y = self.origin_y
+        info.origin.orientation.w = 1.0
+        grid.info = info
+        zeros = np.zeros((self.height, self.width), dtype=np.int8)
+        grid.data = np.zeros((self.height, self.width), dtype=np.int8).flatten().tolist()
+        self.last_mask = grid
+        self._last_np  = zeros.copy()
+        self.mask_pub.publish(grid)
+        self.get_logger().info("Published empty keepout mask (warm-up).")
+    
     def start_transform(self):
         self.get_logger().info("TF Tree 안정화 완료. 변환 시작합니다.")
         # 2초마다 "앞으로 1m"를 변환 테스트 (옵션)
@@ -112,7 +151,7 @@ class TfPointTransform(Node):
         pt.header.stamp = Time().to_msg()
         if self.done_once==False:
             pt.point.x = float(msg.data)
-            self.done_once=True
+            # self.done_once=True
         pt.point.y = 0.0
         pt.point.z = 0.0
 
@@ -142,102 +181,81 @@ class TfPointTransform(Node):
         return None
 
     def publish_mask(self, x_m, y_m, frame_id: str):
-        # 발행 제한
-        if self.done_once:
-            
-  
-        # map 기준으로 그릴 때는 /map info가 준비되어 있어야 안전
+        # /map 메타 아직이면 안전하게 리턴
+        if not self.map_info_synced:
+            return
 
-            grid = OccupancyGrid()
-            grid.header.stamp = self.get_clock().now().to_msg()
-            grid.header.frame_id = frame_id
+        grid = OccupancyGrid()
+        grid.header.stamp = self.get_clock().now().to_msg()
+        grid.header.frame_id = 'map'  # 권장: 고정
 
-            info = MapMetaData()
-            info.resolution = self.resolution
-            info.width = self.width
-            info.height = self.height
-            info.origin.position.x = self.origin_x
-            info.origin.position.y = self.origin_y
-            info.origin.orientation.w = 1.0
-            grid.info = info
+        info = MapMetaData()
+        info.resolution = self.resolution
+        info.width = self.width
+        info.height = self.height
+        info.origin.position.x = self.origin_x
+        info.origin.position.y = self.origin_y
+        info.origin.orientation.w = 1.0
+        grid.info = info
 
-            data = np.zeros((self.height, self.width), dtype=np.int8)
+        data = np.zeros((self.height, self.width), dtype=np.int8)
 
-            cx = int((x_m - self.origin_x) / self.resolution)
-            cy = int((y_m - self.origin_y) / self.resolution)
-            r  = int(0.8/ self.resolution)  # 0.5 m
+        cx = int((x_m - self.origin_x) / self.resolution)
+        cy = int((y_m - self.origin_y) / self.resolution)
 
-            self.get_logger().info(
-                f"mask ROI: world=({x_m:.2f},{y_m:.2f}), grid=({cx},{cy}), size=({self.width},{self.height}), r={r}"
-            )
+        w_m = getattr(self, 'rect_w_m', 0.1)
+        h_m = getattr(self, 'rect_h_m', 1.6)
+        hw = max(1, int(round((w_m/2) / self.resolution)))
+        hh = max(1, int(round((h_m/2) / self.resolution)))
 
-            w_m = getattr(self, 'rect_w_m', 0.4)   # X방향(가로, 짧은 변)
-            h_m = getattr(self, 'rect_h_m', 1.2)   # Y방향(세로, 긴 변)
+        x0 = max(0, cx - hw); x1 = min(self.width  - 1, cx + hw)
+        y0 = max(0, cy - hh); y1 = min(self.height - 1, cy + hh)
+        data[y0:y1+1, x0:x1+1] = 100
 
-            # 셀 단위 절반폭 계산
-            hw = max(1, int(round((w_m/2) / self.resolution)))
-            hh = max(1, int(round((h_m/2) / self.resolution)))
+        # 변경 감지: 이전 마스크와 다를 때만 발행
+        if self.publish_on_change and self._last_np is not None:
+            changed = int(np.count_nonzero(data != self._last_np))
+            if changed < self.min_changed_cells:
+                self.get_logger().debug(f'no publish (changed={changed} < {self.min_changed_cells})')
+                return
 
-            # 경계 보정(+1은 파이썬 슬라이싱 상단 포함 위해)
-            x0 = max(0, cx - hw); x1 = min(self.width  - 1, cx + hw)
-            y0 = max(0, cy - hh); y1 = min(self.height - 1, cy + hh)
-
-            before = np.count_nonzero(data == 100)
-            data[y0:y1+1, x0:x1+1] = 100
-            after  = np.count_nonzero(data == 100)
-            
-            self.get_logger().info(f"blocked cells: {after - before}")
-            if after- before >250:
-                # self.done_once=True
-                self.get_logger().info("True")
-            grid.data = data.flatten().tolist()
-            self.last_mask = grid
-            self.mask_pub.publish(grid)
-            
-            self.get_logger().info(f"Keepout mask 퍼블리시 완료! ({self.publish_count}/{self.max_publish})")
-                   # ★ 이미 생성된 후 들어오는 호출은 fresh 생성 스킵(재발행은 별도 트리거가 처리)
-        else:    
-            self.get_logger().debug("fresh 생성 차단(이미 생성됨); 필요 시 트리거로 재발행만 수행")
+        grid.data = data.flatten().tolist()
+        
+        self.last_mask = grid
+        self._last_np = data.copy()     # ★ 다음 비교를 위해 보관
+        self.mask_pub.publish(grid)
+        self.get_logger().info('Keepout mask publish (change or first)')
     
-    def _on_subscriber_change(self):  # ★ A안
-        self.get_logger().debug("Pub A")
-        n = self.mask_pub.get_subscription_count()
-        if n > self._prev_subs and self.last_mask is not None:
-            self._trigger_republish(burst=1)  # 새 구독자 붙는 상승엣지에서 1회만
-        self._prev_subs = n
-
-    def _on_info(self, msg: CostmapFilterInfo):  # ★ B안(개선)
-        self.get_logger().debug("Pub B")
+    def _heartbeat(self):
         if self.last_mask is None:
             return
-        # Nav2에서 Keepout type = 0
-        try:
-            filter_type = int(msg.type)
-        except Exception:
-            filter_type = -1
-        if filter_type == 0:
-            self._trigger_republish(burst=3)  # 필터 준비 신호 시 3회 버스트
-    def _trigger_republish(self, burst: int, period: float = 0.4):  # ★ 공용 엔진
-        if self._cooldown:
-            # 디바운스 중이면 버스트 횟수만 상향
-            self._burst_remaining = max(self._burst_remaining, burst)
-            return
+        # ★ 새 샘플로 인식되도록 stamp를 매번 갱신
+        self.last_mask.header.stamp = self.get_clock().now().to_msg()
+        self.mask_pub.publish(self.last_mask)
 
-        self._burst_remaining = max(self._burst_remaining, burst)
-        if self._burst_timer is None:
-            self._burst_timer = self.create_timer(period, self._burst_tick)
+    def _on_set_params(self, params):
+        for p in params:
+            if p.name == 'hb_period_sec':
+                try:
+                    new = max(0.5, float(p.value))
+                    self.hb_period_sec = new
+                    self.hb_timer.cancel()
+                    self.hb_timer = self.create_timer(self.hb_period_sec, self._heartbeat)
+                    self.get_logger().info(f'HB period -> {self.hb_period_sec}s')
+                except Exception as e:
+                    return SetParametersResult(successful=False, reason=str(e))
+            elif p.name == 'publish_on_change':
+                self.publish_on_change = bool(p.value)
+                self.get_logger().info(f'publish_on_change -> {self.publish_on_change}')
+            elif p.name == 'min_changed_cells':
+                self.min_changed_cells = int(p.value)
+                self.get_logger().info(f'min_changed_cells -> {self.min_changed_cells}')
+        return SetParametersResult(successful=True)
+    
+    
+   
 
-        self._cooldown = True
-        self.create_timer(2.0, lambda: setattr(self, "_cooldown", False))  # 2s 디바운스
 
-    def _burst_tick(self):  # ★ 공용 엔진
-        if self._burst_remaining > 0 and self.last_mask is not None:
-            self.mask_pub.publish(self.last_mask)
-            self._burst_remaining -= 1
-        else:
-            if self._burst_timer is not None:
-                self._burst_timer.cancel()
-                self._burst_timer = None
 def main():
     rclpy.init()
     node = TfPointTransform()
