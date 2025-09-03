@@ -88,7 +88,7 @@ class Packbot(Node):
         self.waypoints = [
             [
                 create_pose(3.266, 2.034, 0.0, self.nav_navigator),
-                create_pose(-0.0109, 3.053, 90.0, self.nav_navigator),
+                create_pose(-0.0309, 3.053, 90.0, self.nav_navigator),
             ],
             [
                 create_pose(3.266, 2.034, 0.0, self.nav_navigator),
@@ -162,6 +162,7 @@ class Packbot(Node):
                     )
 
             timer = self.create_timer(1.0, show)
+            go_to_final = False
 
             # 5. 이동 중 피드백 확인
             while not self.nav_navigator.isTaskComplete():
@@ -169,27 +170,26 @@ class Packbot(Node):
                 if feedback:
 
                     # 적군 감지 시 코스 변경
-                    if self.is_course_changed:
-                        self.is_course_changed = False
-                        self.pause()
+                    if self.is_course_changed and not go_to_final:
+                        self.nav_navigator.cancelTask()
+                        go_to_final = True
 
-                        remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
+                        # 최종 목적지로 바로 가도록 수정
+                        remaining_waypoints = self.waypoints[self.course_index][-1:]
                         self.nav_navigator.followWaypoints(remaining_waypoints)
-                        self.get_logger().info(
-                            f'현재 목적지: {self.waypoints[self.course_index][self.current_index]}, '
-                        )
+                        self.get_logger().info(f'최종 목적지로 경로를 변경합니다.')
                         continue
 
                     # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
-                    if feedback.current_waypoint == 1:
+                    if not go_to_final and feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 보급로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
-                        # self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
-                        # # 대기 명령 내림
-                        # self.pause()
+                        self.mqttController.publish(f'{OTHER_NAMESPACE}/go_next_waypoint', self.current_index)
+                        # 대기 명령 내림
+                        self.pause()
                         
-                        # while self.current_index != self.supplybot_current_index + 1:
-                        #     pass
+                        while self.current_index != self.supplybot_current_index + 1:
+                            pass
                         
                         if self.current_index < NUM_OF_WAYPOINTS:
                             remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
@@ -234,15 +234,16 @@ class Packbot(Node):
             self.is_moving = False
     
     def change_waypoint(self, msg: Vector3):
-        if self.is_moving and self.course_index == 0:
-            x, y = msg.x, msg.y
-            # self.course_index = 1
+        if self.is_moving and not self.is_course_changed:
+            # x, y = msg.x, msg.y
+            self.course_index = 1
             # self.current_index = max(0, find_closest_point_index((x, y), self.waypoints[self.course_index]) - 1)
-            # self.is_course_changed = True
-            # self.mqttController.publish(f'enemy_detected', self.current_index)
+            self.is_course_changed = True
 
-            self.get_logger().info(f"현재 위치 index = {self.current_index}")
-            self.get_logger().info(f"적군을 감지하여 {self.course_index + 1}번 경로로 탐색합니다.")
+            # self.get_logger().info(f"현재 위치 index = {self.current_index}")
+            self.get_logger().info(f"적군을 감지하여 다른 경로로 탐색합니다.")
+            time.sleep(2)
+            self.mqttController.publish(f'enemy_detected', self.current_index)
     
     def docking(self):
         # 7. 자동 도킹 요청

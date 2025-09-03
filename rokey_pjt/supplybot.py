@@ -187,33 +187,41 @@ class Supplybot(Node):
             # 좌표배열 순서대로 이동 수행 
             self.nav_navigator.followWaypoints(self.waypoints[self.course_index])
 
+            go_to_final = False
+
             # 5. 이동 중 피드백 확인
-            while not self.nav_navigator.isTaskComplete() or self.is_course_changed:
+            while not self.nav_navigator.isTaskComplete() or (self.is_course_changed and not go_to_final):
                 feedback = self.nav_navigator.getFeedback()
-                if feedback or self.is_course_changed:
+                if feedback or (self.is_course_changed and not go_to_final):
                     self.get_logger().info(
                         f'현재 목적지: {self.current_index + 1}/{get_num_of_waypoints()}, '
                         f'packbot 위치: {self.packbot_current_index}/{get_num_of_waypoints()}'
                     )
 
                     # 적군 감지 시 코스 변경
-                    if self.is_course_changed:
-                        self.is_course_changed = False
-                        old_packbot_current_index = self.packbot_current_index
-                        self.pause()
-                        while old_packbot_current_index == self.packbot_current_index or self.packbot_current_index == 0:
-                            self.get_logger().info('적군 감지해서 대기중...')
-                            time.sleep(1)
-                            pass
+                    if self.is_course_changed and not go_to_final:
+                        # self.is_course_changed = False
+                        # old_packbot_current_index = self.packbot_current_index
+                        # self.pause()
+                        # while old_packbot_current_index == self.packbot_current_index or self.packbot_current_index == 0:
+                        #     self.get_logger().info('적군 감지해서 대기중...')
+                        #     time.sleep(1)
+                        #     pass
 
-                        self.get_logger().info(f'정찰로봇이 코스 변경후 {self.packbot_current_index}지점에 도착하여 다시 주행함')
-                        self.current_index = self.packbot_current_index - 1
-                        remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
+                        # self.get_logger().info(f'정찰로봇이 코스 변경후 {self.packbot_current_index}지점에 도착하여 다시 주행함')
+                        # self.current_index = self.packbot_current_index - 1
+                        # remaining_waypoints = self.waypoints[self.course_index][self.current_index:]
+                        # self.nav_navigator.followWaypoints(remaining_waypoints)
+                        self.nav_navigator.cancelTask()
+                        go_to_final = True
+                        
+                        remaining_waypoints = self.waypoints[self.course_index][1:]
                         self.nav_navigator.followWaypoints(remaining_waypoints)
+                        self.get_logger().info(f'적군을 감지하여 최종 목적지로 경로를 변경합니다.')
                         continue
 
                     # feedback.current_waypoint의 값은 현재 로직에서만 0 or 1
-                    if feedback.current_waypoint == 1:
+                    if not go_to_final and feedback.current_waypoint == 1:
                         self.current_index += 1
                         # 정찰로봇에게 도착메시지 전송 후 이전 단계의 waypoint에 도착할 때 까지 대기
                         if self.current_index < get_num_of_waypoints() - 1:
