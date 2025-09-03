@@ -20,6 +20,19 @@ body {
 }
 
 /* 자식 div: 겹쳐서 배치될 div */
+.child-main {
+    position: absolute;
+    top: 27%;
+    left: 13%;
+    width: 71%;
+    height: 25%;
+    background-color: black;
+    color: white;
+    text-align: center;
+    
+}
+
+/* 자식 div: 겹쳐서 배치될 div */
 .child-div {
     position: absolute;
     bottom: 24%;
