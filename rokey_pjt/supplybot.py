@@ -59,14 +59,15 @@ class Supplybot(Node):
         self.waypoints = [
             [
                 create_pose(4.638, 1.465, 0.0, self.nav_navigator),
-                create_pose(3.266, 2.034, 0.0, self.nav_navigator),
+                create_pose(3.266, 2.034, -90.0, self.nav_navigator),
                 create_pose(0.414, 3.101, 90.0, self.nav_navigator),
             ],
             [
                 create_pose(4.638, 1.465, 0.0, self.nav_navigator),
                 create_pose(3.266, 2.034, -90.0, self.nav_navigator),
-                create_pose(2.32, 0.39, 0.0, self.nav_navigator),
-                create_pose(0.46, 0.46, 90.0, self.nav_navigator),
+                create_pose(2.396, 1.326, 0.0, self.nav_navigator),
+                create_pose(1.983, 0.918, 0.0, self.nav_navigator),
+                create_pose(0.801, 0.893, 0.0, self.nav_navigator),
                 create_pose(0.414, 3.101, 90.0, self.nav_navigator),
             ],
         ]
