@@ -73,8 +73,8 @@ def launch_setup(context, *args, **kwargs):
             output='screen',
             parameters=[{
                 'type': 0,                              # 0 = KEEP_OUT
-                'mask_topic': f'{namespace_str}/explosive_keepout_mask',  # 퍼블리시할 OccupancyGrid 토픽
-                # 'filter_info_topic': f'{namespace_str}/keepout_filter_info',
+                'mask_topic': '/robot1/explosive_keepout_mask',  # 퍼블리시할 OccupancyGrid 토픽
+                'filter_info_topic': '/robot1/keepout_costmap_filter_info',
                 'base': 0.0,
                 'multiplier': 1.0
             }]
@@ -92,13 +92,19 @@ def launch_setup(context, *args, **kwargs):
                 'node_names': ['keepout_costmap_filter_info_server']
             }]
         ),
+        # Node(
+        #         package='rokey_pjt',                 # 네 패키지명
+        #         executable='check_info',     # 설치된 실행 파일명
+        #         name='keepout_info_relay',
+        #         output='screen',
+        #     ),
         IncludeLaunchDescription(
             PythonLaunchDescriptionSource(launch_nav2),
             launch_arguments=[
                   ('use_sim_time', use_sim_time),
                   ('params_file', nav2_params.perform(context)),
                   ('use_composition', 'False'),
-                  ('namespace', namespace_str)
+                #   ('namespace', namespace_str)
                 ]
         ),
     ])
