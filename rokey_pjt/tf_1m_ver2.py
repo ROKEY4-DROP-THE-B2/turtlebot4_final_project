@@ -35,7 +35,6 @@ class TfPointTransform(Node):
         self.publish_count = 0
         self.max_publish   = 500000
         self.map_info_synced = False
-        self.done_once = False
         
         # ★ 재발행 엔진 상태(A/B 공용)
         self.last_mask = None
@@ -102,13 +101,12 @@ class TfPointTransform(Node):
     
     def costmap_filter_info_publish_timer(self):
         msg = CostmapFilterInfo()
-        msg.type = CostmapFilterInfo.KEEPOUT
+        msg.type = 0
         msg.filter_mask_topic = '/robot2/explosive_keepout_mask'
         msg.base = 0.0
         msg.multiplier = 1.0
         
         self.costmap_filter_info_publisher.publish(msg)
-        self.get_logger().info('Publishing: "%s"' % msg)
 
     # ---------- 콜백들 ----------
     def map_cb(self, msg: OccupancyGrid):
@@ -275,10 +273,30 @@ class TfPointTransform(Node):
                 self.min_changed_cells = int(p.value)
                 self.get_logger().info(f'min_changed_cells -> {self.min_changed_cells}')
         return SetParametersResult(successful=True)
-    
-    
-   
 
+    def publish_enemy_detected(self):
+        position = self.get_current_position()
+        if position is not None:
+            msg = Vector3()
+            msg.x = position.x
+            msg.y = position.y
+            msg.z = position.z
+            self.detect_enemy_publisher.publish(msg)
+    
+    def get_current_position(self):
+        try:
+            # 'map' 프레임에 대한 'base_link'의 변환을 가져옴
+            transform = self.tf_buffer.lookup_transform(
+                'map',
+                'base_link',
+                rclpy.time.Time()
+            )
+
+            position = transform.transform.translation
+            return position
+        except Exception as e:
+            self.get_logger().error(f"Failed to get current_location: {e}")
+            return None
 
 def main():
     rclpy.init()
