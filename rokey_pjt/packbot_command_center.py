@@ -25,7 +25,9 @@ class PackbotCommandCenter(Node):
         
         def on_message(client, userdata, msg):
             # packbot쪽에서는 mqtt 받을 일 없음
-            pass
+            data = msg.payload.decode()
+            self.publish(data)
+            self.publish_to_mqtt(data)
 
         self.mqttController = MqttController(f'{MY_NAMESPACE}/move', on_message)
         # MQTT 스레드 시작
