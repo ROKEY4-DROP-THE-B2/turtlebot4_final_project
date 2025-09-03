@@ -72,7 +72,8 @@ class TfPointTransform(Node):
         self.add_on_set_parameters_callback(self._on_set_params)
         self._last_np = None
         self.detect_enemy_publisher = self.create_publisher(Vector3, ENEMY_DETECTED, 10)
-
+        self.costmap_filter_info_publisher = self.create_publisher(CostmapFilterInfo, '/robot2/keepout_costmap_filter_info', 10)
+        self.timer = self.create_timer(1.0, self.costmap_filter_info_publish_timer)
         # 거리 구독(메시지 콜백은 'distance_callback'로 별도)
 
         
@@ -98,6 +99,16 @@ class TfPointTransform(Node):
         # 주기 타이머 (인자 없는 콜백)
         self.get_logger().info("TF Tree 안정화 시작. 5초 후 변환 시작합니다.")
         self.start_timer = self.create_timer(5.0, self.start_transform)
+    
+    def costmap_filter_info_publish_timer(self):
+        msg = CostmapFilterInfo()
+        msg.type = CostmapFilterInfo.KEEPOUT
+        msg.filter_mask_topic = '/robot2/explosive_keepout_mask'
+        msg.base = 0.0
+        msg.multiplier = 1.0
+        
+        self.costmap_filter_info_publisher.publish(msg)
+        self.get_logger().info('Publishing: "%s"' % msg)
 
     # ---------- 콜백들 ----------
     def map_cb(self, msg: OccupancyGrid):
@@ -277,6 +288,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        node.timer.cancel()
         node.destroy_node()
         rclpy.shutdown()
 
