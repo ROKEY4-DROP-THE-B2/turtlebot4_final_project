@@ -131,6 +131,7 @@ class Packbot(Node):
             self.dock_navigator.get_logger().info('이동중이라 명령을 무시합니다.')
             return
         self.is_moving = True
+        is_error = False
 
         if num == 1:
             # 1번 동작 수행
@@ -139,9 +140,9 @@ class Packbot(Node):
         elif num == 2:
             # 2번 동작 수행
             pass
-        elif num == 3:
-            # 3번 동작 수행
-            pass
+        elif num in (31, 32, 33, 312, 313, 323, 3123):
+            # 보금품 수령
+            self.nav_navigator.get_logger().info('보급품 로봇이 보급품을 수령중입니다.')
         elif num == 4:
             # 장애물 없을 때 정상 주행
             # 4. Waypoint 경로 이동 시작
@@ -225,9 +226,10 @@ class Packbot(Node):
             
             self.docking()
         else:
+            is_error = True
             self.get_logger().info(f'유효하지 않은 입력값')
         
-        if 1 <= num <= 5:
+        if not is_error:
             self.is_moving = False
     
     def change_waypoint(self, msg: Vector3):
