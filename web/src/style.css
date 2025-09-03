@@ -1,0 +1,31 @@
+/* CSS */
+body {
+    background-color: #EDEEEE;
+    margin-top: 0;
+}
+
+.image-container {
+    display: flex;
+    background-color: #EDEEEE;
+}
+
+.image-container img {
+    flex-grow: 1;
+    max-width: 100%;
+    height: auto;
+}
+
+.parent-div {
+  position: relative; /* 자식 요소의 위치를 이 div에 상대적으로 지정 */
+}
+
+/* 자식 div: 겹쳐서 배치될 div */
+.child-div {
+    position: absolute;
+    bottom: 24%;
+    left: 27%;
+    width: 54px;
+    height: 22px;
+    background-color: lightblue;
+    border: 1px solid blue;
+}
