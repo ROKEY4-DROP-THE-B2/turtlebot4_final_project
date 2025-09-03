@@ -73,8 +73,8 @@ def launch_setup(context, *args, **kwargs):
             output='screen',
             parameters=[{
                 'type': 0,                              # 0 = KEEP_OUT
-                'mask_topic': '/robot1/explosive_keepout_mask',  # 퍼블리시할 OccupancyGrid 토픽
-                'filter_info_topic': '/robot1/keepout_costmap_filter_info',
+                'mask_topic': namespace_str + '/explosive_keepout_mask',  # 퍼블리시할 OccupancyGrid 토픽
+                'filter_info_topic': namespace_str + '/keepout_costmap_filter_info',
                 'base': 0.0,
                 'multiplier': 1.0
             }]
