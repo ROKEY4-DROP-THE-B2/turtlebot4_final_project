@@ -11,7 +11,13 @@ OTHER_NAMESPACE = '/robot1'
 COMMAND = {
     1: '언도킹',
     2: 'UNKNOWN',
-    3: '보급품 수령',
+    31: '보급품 수령',
+    32: '보급품 수령',
+    33: '보급품 수령',
+    312: '보급품 수령', 
+    313: '보급품 수령',
+    323: '보급품 수령',
+    3123: '보급품 수령',
     4: '보급품 운반',
     5: '도킹',
 }
@@ -24,7 +30,6 @@ class PackbotCommandCenter(Node):
         )
         
         def on_message(client, userdata, msg):
-            # packbot쪽에서는 mqtt 받을 일 없음
             data = msg.payload.decode()
             self.publish(data)
             self.publish_to_mqtt(data)
@@ -52,21 +57,10 @@ def main(args=None):
 
     try:
         while rclpy.ok():
-            for k, v in COMMAND.items():
-                node.get_logger().info(f"{k}: {v}")
-            n = int(input('명령을 입력하세요: '))
-            if n == 3:
-                node.get_logger().info('요청할 보급품을 입력하세요.(1: 피복, 2: 탄약, 3: 식량): ')
-                node.get_logger().info('2개 이상을 요청할 경우 ,로 구분해 주세요(ex: 1,3)')
-                menu = ''.join(input().split(','))
-                n = int(str(n) + menu)
-                node.get_logger().info('보급품을 요청하였습니다.')
-            node.publish(n)
-            node.publish_to_mqtt(n)
+            pass
     except KeyboardInterrupt:
         pass
     finally:
         node.mqttController.stop_mqtt()
         executor.shutdown()
-        node.destroy_node()
         rclpy.shutdown()
