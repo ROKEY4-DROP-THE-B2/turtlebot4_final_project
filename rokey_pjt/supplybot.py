@@ -11,6 +11,7 @@ from .mqtt_controller import MqttController
 
 MY_NAMESPACE = '/robot1'
 OTHER_NAMESPACE = '/robot2'
+MISSION_COMPLETED = 'mission_completed'
 
 def create_pose(x, y, yaw_deg, navigator: BasicNavigator) -> PoseStamped:
     """x, y, yaw(도 단위) → PoseStamped 생성"""
@@ -243,6 +244,8 @@ class Supplybot(Node):
             # 6. 도달한 waypoint 인덱스 확인
             result = self.nav_navigator.getResult()
             self.get_logger().info(f'{result}')
+            if result == TaskResult.SUCCEEDED:
+                self.mqttController.publish(MISSION_COMPLETED, 1)
 
         elif num == 5:
             self.get_logger().info(f"10초 후에 docking")
