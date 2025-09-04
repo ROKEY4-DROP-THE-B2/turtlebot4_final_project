@@ -11,6 +11,7 @@ import threading
 import queue
 import numpy as np
 from ultralytics import YOLO
+from collections import deque
 # ========================
 # 상수 정의
 # ========================
@@ -52,6 +53,9 @@ class YOLOTrackerNode(Node):
             Image, DEPTH_IMAGE_TOPIC, self.depth_image_callback, 10)
         self.camera_info_subscription = self.create_subscription(
             CameraInfo, CAMERA_INFO_TOPIC, self.camera_info_callback, 10)
+        
+        self.queue = deque([], maxlen=5)
+
         # 백그라운드 처리 스레드 시작
         self.worker_thread = threading.Thread(target=self.visualization_loop)
         self.worker_thread.daemon = True
@@ -139,16 +143,21 @@ class YOLOTrackerNode(Node):
                     distance_mm = depth_frame[center_y, center_x]
                     if distance_mm > 0:
                         distance_m = distance_mm / 1000.0
-                if distance_m > 0 and label == 'MOH-50' and conf >= 0.7:
-                    msg = Float32()
-                    msg.data = distance_m
-                    self.publisher_.publish(msg)
-                    text = f"{conf:.2f} {distance_m:.2f}m"
+                if 0 < distance_m <= 2.0 and label == 'enemy' and conf >= 0.5:
+                    self.queue.append('T')
+                    if self.queue.count('T') >= 3:
+                        msg = Float32()
+                        msg.data = distance_m
+                        self.publisher_.publish(msg)
+                        text = f"{conf:.2f} {distance_m:.2f}m"
 
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.putText(img, text, (x1, y1 - 10),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
-                    object_count += 1
+                        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                        cv2.putText(img, text, (x1, y1 - 10),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 0, 0), 2)
+                        object_count += 1
+                else:
+                    self.queue.append('F')
+
         cv2.putText(img, f"Objects: {object_count}", (10, 30),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 # ========================

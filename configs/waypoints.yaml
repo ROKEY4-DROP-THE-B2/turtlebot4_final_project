@@ -1,0 +1,48 @@
+waypoints:
+  - name: "supplies_1_1"
+    frame_id: map
+    pose:
+      position: {x: 3.661709785461426, y: -0.06583523750305176, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "supplies_1_2"
+    frame_id: map
+    pose:
+      position: {x: 4.144245147705078, y: -0.03397253900766373, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "supplies_1_3"
+    frame_id: map
+    pose:
+      position: {x: 4.722928047180176, y: -0.045948974788188934, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "init_1"
+    frame_id: map
+    pose:
+      position: {x: 4.197420120239258, y: 0.8521692752838135, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "ready_1"
+    frame_id: map
+    pose:
+      position: {x: 4.638077259063721, y: 1.4655205011367798, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "init_2"
+    frame_id: map
+    pose:
+      position: {x: 4.66332483291626, y: 2.580850124359131, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "ready_2"
+    frame_id: map
+    pose:
+      position: {x: 4.090394020080566, y: 2.3109209537506104, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+
+  - name: "final_1"
+    frame_id: map
+    pose:
+      position: {x: 0.16373412311077118, y: 3.0421085357666016, z: 0.0}
+      orientation: {x: 0.0, y: 0.0, z: 0.0, w: 1.0}

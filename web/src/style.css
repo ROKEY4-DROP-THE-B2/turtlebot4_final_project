@@ -1,0 +1,77 @@
+/* CSS */
+body {
+    background-color: #EDEEEE;
+    margin-top: 0;
+    overflow: hidden;
+}
+
+.image-container {
+    display: flex;
+    background-color: #EDEEEE;
+}
+
+.image-container img {
+    flex-grow: 1;
+    max-width: 100%;
+    height: auto;
+}
+
+.parent-div {
+  position: relative; /* 자식 요소의 위치를 이 div에 상대적으로 지정 */
+}
+
+/* 자식 div: 겹쳐서 배치될 div */
+.child-main {
+    position: absolute;
+    top: 27%;
+    left: 13%;
+    width: 71%;
+    height: 25%;
+    background-color: black;
+    color: white;
+    text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+}
+
+/* 자식 div: 겹쳐서 배치될 div */
+.child-div {
+    position: absolute;
+    bottom: 23%;
+    left: 27%;
+    width: 54px;
+    height: 28px;
+    background-color: transparent;
+    /* border: 1px solid blue; */
+}
+
+.child-div2 {
+    position: absolute;
+    bottom: 18%;
+    left: 27%;
+    width: 54px;
+    height: 28px;
+    background-color: transparent;
+    /* border: 1px solid blue; */
+}
+
+#confirm-btn {
+    text-align: center;
+    background-color: #0000;
+    /* border: 1px solid #00f; */
+    width: 20%;
+    height: 10%;
+    position: absolute;
+    top: 59%;
+    left: 41%;
+}
+
+.btn2 {
+    left: 44%;
+}
+
+.btn3 {
+    left: 61%;
+}

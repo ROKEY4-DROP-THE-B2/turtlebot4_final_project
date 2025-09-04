@@ -23,6 +23,12 @@ setup(
             'yolo=rokey_pjt.4_tb4_yolov8_obj_det_thread:main',
             'depth_checker=rokey_pjt.depth_checker_mouse_mean:main',
             'tf=rokey_pjt.tf_point_transform:main',
+            'tf2=rokey_pjt.tf_1m_ver2:main',
+            'packbot=rokey_pjt.packbot:main',
+            'supplybot=rokey_pjt.supplybot:main',
+            'packbot_cc=rokey_pjt.packbot_command_center:main',
+            'supplybot_cc=rokey_pjt.supplybot_command_center:main',
+            'supplybot_test=rokey_pjt.supplybot_test:main',
         ],
     },
 )
