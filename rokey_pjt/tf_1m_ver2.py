@@ -120,7 +120,7 @@ class TfPointTransform(Node):
             return
         grid = OccupancyGrid()
         grid.header.stamp = self.get_clock().now().to_msg()
-        grid.header.frame_id = 'map'  # ★ 고정 권장
+        grid.header.frame_id = 'map'  
         info = MapMetaData()
         info.resolution = self.resolution
         info.width      = self.width
