@@ -15,21 +15,16 @@ CLIENT_ID = "robot1-status-publisher"
 app = Flask(__name__)
 CORS(app)  # 모든 출처에 대해 CORS 허용
 
-@app.route('/')
-def hello():
-    return 'hi'
-
 @app.route('/move/<action>')
 def start(action):
     mqtt_client = connect_mqtt()
     mqtt_client.loop_start()
     result = mqtt_client.publish(TOPIC, action)
     mqtt_client.loop_stop()
-    print(result)
     if result[0] == 0:
-        return "요청이 성공적으로 처리되었습니다.", 200
+        return ["요청이 성공적으로 처리되었습니다.", 200]
     else:
-        return "요청이 처리되지 않았습니다.", 400
+        return ["요청이 처리되지 않았습니다.", 400]
 
 def connect_mqtt():
     def on_connect(client, userdata, flags, rc):
