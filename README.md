@@ -10,13 +10,9 @@ turtlebot4를 활용한 최종 프로젝트
     
     → costmap(맵에서 보라색, 분홍색, 핑크색 테두리)이 제대로 출력되는지 확인한다.
     
-    ![스크린샷 2025-08-28 14-27-09.png](attachment:01dfa173-8be9-4e4d-83ac-32ef1bfb1b8c:스크린샷_2025-08-28_14-27-09.png)
-    
 5. ping 192.168.0.49 (robot 1은 ping 192.168.101.3)
     
     → 4번 노드 실행 동안 네트워크 상태를 확인한다.
-    
-    ![스크린샷 2025-08-28 14-30-55.png](attachment:fa8a2fd9-9ff3-4a62-a938-d0b346e6d95b:스크린샷_2025-08-28_14-30-55.png)
     
 6. (6, 7중 선택) packbot robot2:
     1. ros2 run rokey_pjt tf --ros-args -r __ns:=/robot2 -r /tf:=/robot2/tf -r /tf_static:=/robot2/tf_static
