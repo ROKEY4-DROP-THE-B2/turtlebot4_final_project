@@ -1,6 +1,9 @@
 # turtlebot4_final_project
 turtlebot4를 활용한 최종 프로젝트
 
+## 시연영상
+<https://youtu.be/0fqwyjAg3G4>
+
 ## 노드 실행 순서
 1. ros2 launch turtlebot4_navigation localization.launch.py namespace:=/robot2 map:=$HOME/rokey_ws/maps/first_map.yaml params_file:=$HOME/rokey_ws/configs/local2.yaml
 2. ros2 launch turtlebot4_viz view_robot.launch.py namespace:=/robot2
